@@ -69,4 +69,3 @@ python grader.py -i input_homework.jpg -o graded_homework.jpg
  4. **Stamping:** The script tallies the correct steps to calculate a score out of 20. It then scans the image using a grid-search algorithm to find the closest un-annotated area (usually near the top right) to draw a red circular stamp with the final grade.
 ## 📄 License
 This project is licensed under the MIT License. Feel free to use, modify, and distribute it!
-```
