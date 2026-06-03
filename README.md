@@ -1,3 +1,5 @@
+Here is the complete, polished README.md ready to be copied directly into your GitHub repository.
+Just click the "Copy" button in the top right corner of the code block below, paste it into your README.md file, and commit!
 ```markdown
 # Gemini Math Grader 📝🤖
 
@@ -19,8 +21,8 @@ This script acts like a virtual red pen. It analyzes a photo of a math paper, ev
 ## 🛠️ Prerequisites
 
 Before you begin, ensure you have the following installed:
-* **Python 3.7** or higher
-* A **Google Gemini API Key** (Get one from [Google AI Studio](https://aistudio.google.com/))
+* **Python 3.7+**
+* A **Google Gemini API Key** (You can get one for free from [Google AI Studio](https://aistudio.google.com/))
 
 ---
 
@@ -57,7 +59,7 @@ The script requires your Gemini API key to be stored securely as an environment 
 ## 🚀 Usage
 Run the script from your terminal. You must provide the input image path and the desired output image path using the -i and -o flags.
 ```bash
-python grader.py -i homework.jpg -o graded_homework.jpg
+python grader.py -i input_homework.jpg -o graded_homework.jpg
 
 ```
 **Arguments:**
@@ -66,10 +68,10 @@ python grader.py -i homework.jpg -o graded_homework.jpg
 ## 🧠 How it Works Under the Hood
  1. **Splitting:** The script slices the original image horizontally into a "Top Half" and "Bottom Half" (with slight overlap) to maintain maximum detail for the vision model.
  2. **Prompting:** It sends the chunks to Gemini 2.5 Flash with a strict prompt, forcing the AI to return a validated JSON array containing is_correct (boolean), feedback (short string), and box_2d (normalized coordinates).
- 3. **Drawing (Pass 1 & 2):** Using the Pillow library, the script first maps out where all the equations are. Then, it draws thick green checkmarks next to correct steps, and red outlines with wrapped text feedback near incorrect steps.
- 4. **Stamping:** The script tallies the correct steps to calculate a score out of 20. It then scans the image using a grid-search algorithm to find the closest un-annotated area (usually the top right) to draw a red circular stamp with the final grade.
+ 3. **Drawing:** Using the Pillow library, the script first maps out where all the equations are. Then, it draws thick green checkmarks next to correct steps, and red outlines with wrapped text feedback near incorrect steps.
+ 4. **Stamping:** The script tallies the correct steps to calculate a score out of 20. It then scans the image using a grid-search algorithm to find the closest un-annotated area (usually near the top right) to draw a red circular stamp with the final grade.
 ## 📄 License
-This project is licensed under the MIT License. Feel free to use, modify, and distribute it as you see fit!
+This project is licensed under the MIT License. Feel free to use, modify, and distribute it!
 ```
 
 ```
