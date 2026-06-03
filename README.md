@@ -70,5 +70,3 @@ python grader.py -i input_homework.jpg -o graded_homework.jpg
 ## 📄 License
 This project is licensed under the MIT License. Feel free to use, modify, and distribute it!
 ```
-
-```
