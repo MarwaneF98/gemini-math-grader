@@ -1,6 +1,3 @@
-Here is the complete, polished README.md ready to be copied directly into your GitHub repository.
-Just click the "Copy" button in the top right corner of the code block below, paste it into your README.md file, and commit!
-```markdown
 # Gemini Math Grader 📝🤖
 
 An automated AI teaching assistant that uses the **Gemini 2.5 Flash API** to visually inspect, grade, and annotate handwritten math assignments directly on the image.
