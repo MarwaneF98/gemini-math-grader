@@ -1,33 +1,21 @@
 # Gemini Math Grader 📝🤖
-
 An automated AI teaching assistant that uses the **Gemini 2.5 Flash API** to visually inspect, grade, and annotate handwritten math assignments directly on the image.
-
-This script acts like a virtual red pen. It analyzes a photo of a math paper, evaluates each step of the equations for accuracy, and draws feedback exactly where it belongs. It adds green checkmarks for correct steps, red bounding boxes with constructive feedback for errors, and stamps a final calculated grade on the page—all while smartly avoiding drawing over the student's original handwriting.
-
----
-
+This script acts like a virtual red pen. It analyzes a photo of a math paper, evaluates each step of the equations for accuracy, and draws feedback exactly where it belongs. It adds green checkmarks for correct steps, red bounding boxes with constructive feedback for errors, and stamps a final calculated grade on the page—all while smartly dodging the student's original handwriting and preventing annotation collisions.
 ## ✨ Features
-
-* **Multimodal AI Grading:** Leverages Gemini 2.5 Flash's advanced vision capabilities to read and understand handwritten math equations.
-* **Spatial Annotation:** Extracts `box_2d` coordinates from the API response to map feedback precisely to the corresponding equations on the page.
-* **Smart Overlap Detection:** Uses a custom grid-search algorithm to find blank spaces on the paper, ensuring that the final grade stamp and text feedback never cover up the student's work.
-* **Intelligent Image Processing:** Automatically splits tall/long images into overlapping halves before sending them to the API. This maintains high resolution, prevents AI hallucinations, and ensures no details are lost.
-
----
-
+ * **Multimodal AI Grading:** Leverages Gemini 2.5 Flash's advanced vision capabilities to read and evaluate handwritten math equations, whiteboards, and digital screens.
+ * **Ultra-Fast Single Pass:** Processes the entire image in one optimized API call, bringing grading time down to just a few seconds.
+ * **Teacher's Margin Alignment:** Automatically aligns checkmarks and 'X' marks into a neat, professional column down the right side of the page.
+ * **3-Phase Rendering Engine:** Eliminates visual traffic jams. It locks in the math boxes and grade stamp *first*, forcing detailed feedback notes to route around them into safe, empty spaces.
+ * **Semi-Transparent Overlays:** Uses beautiful, semi-opaque backgrounds for notes and stamps, ensuring the student's original math is always readable underneath.
 ## 🛠️ Prerequisites
-
 Before you begin, ensure you have the following installed:
-* **Python 3.7+**
-* A **Google Gemini API Key** (You can get one for free from [Google AI Studio](https://aistudio.google.com/))
-
----
-
+ * **Python 3.7+**
+ * A **Google Gemini API Key** (You can get one for free from Google AI Studio)
+ * The Pillow library for image processing
 ## 📦 Installation
-
 **1. Clone the repository:**
 ```bash
-git clone [https://github.com/YOUR_USERNAME/gemini-math-grader.git](https://github.com/YOUR_USERNAME/gemini-math-grader.git)
+git clone https://github.com/YOUR_USERNAME/gemini-math-grader.git
 cd gemini-math-grader
 
 ```
@@ -36,6 +24,7 @@ cd gemini-math-grader
 pip install -r requirements.txt
 
 ```
+*(Note: Your requirements.txt should contain requests and Pillow)*
 **3. Set your API Key:**
 The script requires your Gemini API key to be stored securely as an environment variable named GEMINI_API_KEY.
  * **Linux / macOS:**
@@ -63,9 +52,9 @@ python grader.py -i input_homework.jpg -o graded_homework.jpg
  * -i or --input: Path to the original photo of the homework.
  * -o or --output: Path where the graded, annotated image will be saved.
 ## 🧠 How it Works Under the Hood
- 1. **Splitting:** The script slices the original image horizontally into a "Top Half" and "Bottom Half" (with slight overlap) to maintain maximum detail for the vision model.
- 2. **Prompting:** It sends the chunks to Gemini 2.5 Flash with a strict prompt, forcing the AI to return a validated JSON array containing is_correct (boolean), feedback (short string), and box_2d (normalized coordinates).
- 3. **Drawing:** Using the Pillow library, the script first maps out where all the equations are. Then, it draws thick green checkmarks next to correct steps, and red outlines with wrapped text feedback near incorrect steps.
- 4. **Stamping:** The script tallies the correct steps to calculate a score out of 20. It then scans the image using a grid-search algorithm to find the closest un-annotated area (usually near the top right) to draw a red circular stamp with the final grade.
+ 1. **Pre-Processing:** The script loads the image and corrects any hidden EXIF rotation data (common in mobile phone photos) so bounding boxes map perfectly to the visual text.
+ 2. **Prompting:** It sends the full image to Gemini 2.5 Flash with a strict prompt, forcing the AI to return a validated JSON array containing is_correct (boolean), feedback (short string), and box_2d (normalized coordinates). It specifically ignores signatures and plain text at the bottom.
+ 3. **Phase 1 & 2 (Marks & Stamp):** It maps out the equations, draws Checkmarks and Xs neatly in the right margin, and pastes an opaque "Score Stamp" in the top right corner. It registers all these areas as "Occupied".
+ 4. **Phase 3 (Smart Routing):** It evaluates incorrect steps and draws text feedback boxes. Using a radial search algorithm, the notes dynamically look for empty space nearby, gracefully dodging the stamp, the margin marks, and other notes!
 ## 📄 License
 This project is licensed under the MIT License. Feel free to use, modify, and distribute it!
