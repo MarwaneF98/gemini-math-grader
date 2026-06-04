@@ -12,11 +12,24 @@ venv/
 env/
 .venv/
 
-# Ignore test images so you don't upload personal photos
+# IDEs and Code Editors
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+
+# Ignore test images/scans so you don't upload personal photos
 *.jpg
 *.jpeg
 *.png
 *.webp
+*.heic
+*.HEIC
+*.pdf
 
 # Except for an example input/output if you want to showcase them in the README
 # !example_input.jpg
