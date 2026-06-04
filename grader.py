@@ -21,7 +21,7 @@ if not API_KEY:
     print("  Windows CMD: set GEMINI_API_KEY='your_api_key'")
     sys.exit(1)
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.5-flash"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
 
 # --- DESIGN COLORS ---
