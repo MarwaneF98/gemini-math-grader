@@ -5,9 +5,10 @@ import base64
 import io
 import json
 import time
+import math
 import requests
 import textwrap
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 # 1. Configuration
 API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -23,15 +24,20 @@ if not API_KEY:
 MODEL = "gemini-2.5-flash"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
 
-def load_font(target_size):
+# --- DESIGN COLORS ---
+COLOR_CORRECT = (22, 163, 74, 255)       # Emerald Green
+COLOR_WRONG = (220, 38, 38, 255)         # Crimson Red
+COLOR_NOTE_BG = (255, 255, 255, 245)     # 96% Opaque White for clean overlapping
+
+def load_font(target_size, bold=False):
     # Standard font paths for Android, Windows, macOS, and Linux
     font_paths = [
-        "/system/fonts/Roboto-Regular.ttf",               # Android
-        "/system/fonts/DroidSans.ttf",                    # Android
-        "/system/fonts/NotoSans-Regular.ttf",             # Android
-        "C:/Windows/Fonts/arial.ttf",                     # Windows
-        "/Library/Fonts/Arial.ttf",                       # macOS
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" # Linux
+        "/system/fonts/Roboto-Bold.ttf" if bold else "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/NotoSans-Bold.ttf" if bold else "/system/fonts/NotoSans-Regular.ttf",
+        "/system/fonts/DroidSans-Bold.ttf" if bold else "/system/fonts/DroidSans.ttf",
+        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
+        "/Library/Fonts/Arial Bold.ttf" if bold else "/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
     ]
     for path in font_paths:
         if os.path.exists(path):
@@ -41,54 +47,110 @@ def load_font(target_size):
                 continue
     return ImageFont.load_default()
 
-def get_api_annotations(img_chunk, section_name):
+def get_api_annotations(img_chunk):
     buffer = io.BytesIO()
     img_chunk.save(buffer, format="JPEG")
     base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
     prompt = (
-        "You are an expert math grader. Analyze EVERY SINGLE line of this math image snippet from top to bottom. "
-        "If an equation is visibly sliced in half by the top or bottom edge of the image, IGNORE IT. "
+        "You are an expert math grader. Analyze this math page.\n"
+        "CRITICAL RULES:\n"
+        "1. DO NOT grade signatures, names, dates, or plain text. ABSOLUTELY IGNORE anything at the very bottom of the page.\n"
+        "2. Provide EXACTLY ONE bounding box per horizontal line of math. Do not split a single equation into multiple boxes.\n"
+        "3. Keep bounding boxes TIGHT around the math.\n"
         "Return ONLY a raw JSON array of objects. Keys: "
         "'is_correct' (boolean), "
-        "'feedback' (string, maximum 8 words if wrong, empty if correct), "
+        "'feedback' (string, max 8 words if wrong, empty if correct), "
         "'box_2d' (array of 4 integers: [ymin, xmin, ymax, xmax] normalized to 1000)."
     )
 
     payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": prompt}, 
-                    {"inlineData": {"mimeType": "image/jpeg", "data": base64_image}}
-                ]
-            }
-        ],
-        "generationConfig": {
-            "responseMimeType": "application/json"
-        }
+        "contents": [{"parts": [{"text": prompt}, {"inlineData": {"mimeType": "image/jpeg", "data": base64_image}}]}],
+        "generationConfig": {"responseMimeType": "application/json"}
     }
 
-    for attempt in range(3):
+    for attempt in range(3): 
         try:
             response = requests.post(URL, json=payload, headers={"Content-Type": "application/json"})
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
+                result_text = result_text.replace('```json', '').replace('```', '').strip()
                 try:
                     data = json.loads(result_text)
-                    if isinstance(data, list) and len(data) > 0:
+                    if isinstance(data, list):
                         return data 
                 except json.JSONDecodeError:
-                    print(f"[{section_name}] Failed to parse JSON on attempt {attempt + 1}.")
-                
-            print(f"[{section_name}] Attempt {attempt + 1} failed or returned empty. Retrying...")
+                    time.sleep(2)
+            else:
+                time.sleep(2)
+        except Exception:
             time.sleep(2)
-        except Exception as e:
-            print(f"[{section_name}] Error on attempt {attempt + 1}: {e}")
-            time.sleep(2)
-            
-    print(f"WARNING: Could not grade {section_name} after 3 attempts.")
     return []
+
+def is_overlapping(new_rect, occupied_rects, padding=10):
+    nr = [new_rect[0]-padding, new_rect[1]-padding, new_rect[2]+padding, new_rect[3]+padding]
+    for occ in occupied_rects:
+        if not (nr[2] < occ[0] or nr[0] > occ[2] or nr[3] < occ[1] or nr[1] > occ[3]):
+            return True
+    return False
+
+def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
+    step = 25 
+    for radius in range(0, max(img_w, img_h), step):
+        for angle in range(0, 360, 30):
+            rad = math.radians(angle)
+            test_x = int(cx + radius * math.cos(rad))
+            test_y = int(cy + radius * math.sin(rad))
+            
+            rect = [test_x, test_y, test_x + text_w, test_y + text_h]
+            
+            # Keep away from edges, and give a 60px padding at the top to avoid clipboards/binders
+            if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
+                continue
+            
+            if not is_overlapping(rect, occupied_rects, padding=10):
+                return rect
+                
+    safe_x = min(max(10, cx), img_w - text_w - 10)
+    safe_y = min(max(60, cy), img_h - text_h - 10)
+    return [safe_x, safe_y, safe_x + text_w, safe_y + text_h]
+
+def draw_focus_box(draw, left, top, right, bottom, color):
+    length = min(30, (right - left) // 4)
+    thick = 5
+    thin = 2
+    draw.rectangle([left, top, right, bottom], outline=color, width=thin)
+    draw.line([(left, top+length), (left, top), (left+length, top)], fill=color, width=thick)
+    draw.line([(right-length, top), (right, top), (right, top+length)], fill=color, width=thick)
+    draw.line([(left, bottom-length), (left, bottom), (left+length, bottom)], fill=color, width=thick)
+    draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick)
+
+def draw_stamp(img_w, img_h, score_text):
+    base_font_size = int(img_h * 0.04)
+    stamp_font = load_font(base_font_size, bold=True)
+    label_font = load_font(int(base_font_size * 0.4), bold=True)
+    
+    temp_img = Image.new("RGBA", (1, 1))
+    temp_draw = ImageDraw.Draw(temp_img)
+    try:
+        bbox = temp_draw.textbbox((0, 0), score_text, font=stamp_font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+    except AttributeError:
+        text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
+
+    padding = int(img_w * 0.04)
+    stamp_size = max(text_w, text_h) + (padding * 2)
+    stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
+    s_draw = ImageDraw.Draw(stamp)
+    
+    # Fully opaque white background acts as a physical sticker
+    s_draw.ellipse([5, 5, stamp_size-5, stamp_size-5], fill=(255, 255, 255, 255), outline=COLOR_WRONG, width=8)
+    s_draw.ellipse([18, 18, stamp_size-18, stamp_size-18], outline=COLOR_WRONG, width=3)
+    s_draw.text((stamp_size//2, stamp_size//4 + 10), "SCORE", fill=COLOR_WRONG, font=label_font, anchor="mm")
+    s_draw.text((stamp_size//2, stamp_size//2 + 15), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
+    
+    return stamp.rotate(-15, expand=True, resample=Image.BICUBIC)
 
 def grade_and_draw_full_paper(image_path, output_path):
     if not os.path.exists(image_path):
@@ -96,152 +158,152 @@ def grade_and_draw_full_paper(image_path, output_path):
         return
 
     print("Loading original image...")
-    original_img = Image.open(image_path).convert("RGB")
+    original_img = Image.open(image_path)
+    # Fix EXIF rotation issues from mobile cameras
+    original_img = ImageOps.exif_transpose(original_img).convert("RGBA")
     width, height = original_img.size
-    draw = ImageDraw.Draw(original_img)
     
-    font = load_font(int(height * 0.018))
-    grade_font = load_font(int(height * 0.06))
-
+    overlay = Image.new("RGBA", original_img.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(overlay)
+    font = load_font(int(height * 0.016), bold=True)
+    
     occupied_rects = []
+    total_steps, correct_steps = 0, 0
 
-    def is_overlapping(new_rect):
-        for occ in occupied_rects:
-            if not (new_rect[2] < occ[0] or new_rect[0] > occ[2] or new_rect[3] < occ[1] or new_rect[1] > occ[3]):
-                return True
-        return False
+    print("Analyzing the entire page in one pass...")
+    api_img = original_img.copy().convert("RGB")
+    api_img.thumbnail((1536, 1536))
+    
+    grading_results = get_api_annotations(api_img)
 
-    midpoint = height // 2
-    overlap = int(height * 0.05) 
-    chunks = [
-        {"box": (0, 0, width, midpoint + overlap), "y_offset": 0, "name": "Top Half"},
-        {"box": (0, midpoint - overlap, width, height), "y_offset": midpoint - overlap, "name": "Bottom Half"}
-    ]
-
-    total_steps = 0
-    correct_steps = 0
-
-    for chunk in chunks:
-        print(f"Processing {chunk['name']}...")
-        crop_box = chunk["box"]
-        y_offset = chunk["y_offset"]
+    valid_results = []
+    for step in grading_results:
+        box = step.get("box_2d", [0, 0, 0, 0])
+        top = int((box[0] / 1000.0) * height)
+        left = int((box[1] / 1000.0) * width)
+        bottom = int((box[2] / 1000.0) * height)
+        right = int((box[3] / 1000.0) * width)
         
-        cropped_img = original_img.crop(crop_box)
-        api_img = cropped_img.copy()
-        api_img.thumbnail((1024, 1024))
-        
-        chunk_width, chunk_height = cropped_img.size
-        grading_data = get_api_annotations(api_img, chunk["name"])
-
-        # PASS 1: Map all equation zones
-        for step in grading_data:
-            box = step.get("box_2d", [0, 0, 0, 0])
-            top = int((box[0] / 1000.0) * chunk_height) + y_offset
-            left = int((box[1] / 1000.0) * chunk_width)
-            bottom = int((box[2] / 1000.0) * chunk_height) + y_offset
-            right = int((box[3] / 1000.0) * chunk_width)
-            occupied_rects.append([left, top, right, bottom])
-
-        # PASS 2: Draw marks and text
-        for step in grading_data:
-            total_steps += 1
-            box = step.get("box_2d", [0, 0, 0, 0])
+        # Hard filter to protect the bottom signature area (bottom 15%)
+        if top > height * 0.85:
+            continue
             
-            top = int((box[0] / 1000.0) * chunk_height) + y_offset
-            left = int((box[1] / 1000.0) * chunk_width)
-            bottom = int((box[2] / 1000.0) * chunk_height) + y_offset
-            right = int((box[3] / 1000.0) * chunk_width)
+        step["global_box"] = [left, top, right, bottom]
+        valid_results.append(step)
+        if step.get("is_correct", True):
+            correct_steps += 1
+        total_steps += 1
 
-            is_correct = step.get("is_correct", True)
-            feedback = step.get("feedback", "")
-
-            if is_correct:
-                correct_steps += 1
-                chk_x = right + 20
-                if chk_x + 50 > width:
-                    chk_x = max(10, left - 60)
-                chk_y = top + (bottom - top) // 2
-                draw.line([(chk_x, chk_y), (chk_x + 15, chk_y + 15), (chk_x + 40, chk_y - 20)], fill="green", width=6)
-            else:
-                draw.rectangle([left, top, right, bottom], outline="red", width=6)
-                
-                x_x = right + 20
-                if x_x + 50 > width:
-                    x_x = max(10, left - 60)
-                x_y = top
-                draw.line([(x_x, x_y), (x_x + 40, x_y + 40)], fill="red", width=6)
-                draw.line([(x_x + 40, x_y), (x_x, x_y + 40)], fill="red", width=6)
-                
-                char_width_estimate = int(width * 0.015) 
-                max_chars = max(20, int((width - left - 40) / char_width_estimate))
-                wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars))
-                
-                try:
-                    bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
-                    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-                except AttributeError:
-                    text_w, text_h = draw.textsize(wrapped_feedback, font=font)
-                
-                text_y = max(10, top - text_h - 10)
-                text_rect = [left, text_y, left + text_w, text_y + text_h]
-                
-                if is_overlapping(text_rect):
-                    text_y = bottom + 10
-                    text_rect = [left, text_y, left + text_w, text_y + text_h]
-                
-                attempts = 0
-                while is_overlapping(text_rect) and attempts < 20:
-                    text_y += 15 
-                    text_rect = [left, text_y, left + text_w, text_y + text_h]
-                    attempts += 1
-                
-                occupied_rects.append(text_rect)
-                draw.text((left, text_y), wrapped_feedback, fill="red", font=font)
-
-    print("Calculating final grade and finding safe space on page...")
+    # ==========================================
+    # PHASE 1: Stamp Reservation
+    # ==========================================
+    stamp_x, stamp_y = 0, 0
+    stamp_rect = [0, 0, 0, 0]
+    stamp_img = None
     if total_steps > 0:
         raw_score = (correct_steps / total_steps) * 20
         score_20 = round(raw_score * 2) / 2
-        
-        grade_text = f"{int(score_20)} / 20" if score_20.is_integer() else f"{score_20} / 20"
+        grade_text = f"{int(score_20)}/20" if score_20.is_integer() else f"{score_20}/20"
 
-        try:
-            bbox = draw.textbbox((0, 0), grade_text, font=grade_font)
-            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        except AttributeError:
-            text_w, text_h = draw.textsize(grade_text, font=grade_font)
+        stamp_img = draw_stamp(width, height, grade_text)
+        s_w, s_h = stamp_img.size
 
-        circle_padding = int(width * 0.05)
-        stamp_w = text_w + (circle_padding * 2)
-        stamp_h = text_h + (circle_padding * 2)
+        stamp_x = width - s_w - int(width * 0.03)
+        stamp_y = int(height * 0.03)
+        stamp_rect = [stamp_x, stamp_y, stamp_x + s_w, stamp_y + s_h]
+        occupied_rects.append(stamp_rect) 
 
-        found_spot = False
-        stamp_x_center = int(width * 0.85) 
-        stamp_y_center = int(height * 0.10)
+    # ==========================================
+    # PHASE 2: Draw Math Boxes and Margin Marks
+    # ==========================================
+    for step in valid_results:
+        left, top, right, bottom = step["global_box"]
+        is_correct = step.get("is_correct", True)
 
-        step_y = int(height * 0.03)
-        step_x = int(width * 0.05)
-        padding_margin = int(width * 0.02)
+        box_cy = top + (bottom - top) // 2
+        mark_x = width - 80 # Teacher's Right Margin
+        mark_y = box_cy
 
-        for y in range(padding_margin, height - stamp_h, step_y):
-            for x in range(width - stamp_w - padding_margin, padding_margin, -step_x):
-                test_rect = [x, y, x + stamp_w, y + stamp_h]
-                if not is_overlapping(test_rect):
-                    stamp_x_center = x + (stamp_w // 2)
-                    stamp_y_center = y + (stamp_h // 2)
-                    found_spot = True
-                    break
-            if found_spot:
-                break
+        # Evade stamp
+        if stamp_img and (stamp_rect[1] - 30 <= mark_y <= stamp_rect[3] + 30):
+            mark_x = stamp_rect[0] - 50
 
-        draw.ellipse(
-            [stamp_x_center - stamp_w//2, stamp_y_center - stamp_h//2, 
-             stamp_x_center + stamp_w//2, stamp_y_center + stamp_h//2], 
-            outline="red", width=8
-        )
-        draw.text((stamp_x_center - text_w//2, stamp_y_center - text_h//2), grade_text, fill="red", font=grade_font)
+        # Claim the mark's space
+        temp_mark_rect = [mark_x - 20, mark_y - 20, mark_x + 40, mark_y + 40]
+        occupied_rects.append(temp_mark_rect)
 
-    original_img.save(output_path)
+        # Truncate box if it is too wide
+        draw_right = min(right, mark_x - 30)
+        step["draw_right"] = draw_right 
+
+        if is_correct:
+            points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
+            draw.line(points, fill=COLOR_CORRECT, width=6, joint="curve")
+        else:
+            draw_focus_box(draw, left, top, draw_right, bottom, COLOR_WRONG)
+            draw.line([(mark_x, mark_y - 15), (mark_x + 30, mark_y + 15)], fill=COLOR_WRONG, width=6)
+            draw.line([(mark_x + 30, mark_y - 15), (mark_x, mark_y + 15)], fill=COLOR_WRONG, width=6)
+
+    # ==========================================
+    # PHASE 3: Draw the Feedback Notes
+    # ==========================================
+    for step in valid_results:
+        is_correct = step.get("is_correct", True)
+        feedback = step.get("feedback", "")
+        left, top, right, bottom = step["global_box"]
+        draw_right = step["draw_right"]
+        box_cx = left + (draw_right - left) // 2
+        box_cy = top + (bottom - top) // 2
+
+        if not is_correct and feedback:
+            char_width_estimate = int(width * 0.015) 
+            max_chars = max(15, int((width * 0.25) / char_width_estimate))
+            wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
+            
+            try:
+                bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
+                text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            except AttributeError:
+                text_w, text_h = draw.textsize(wrapped_feedback, font=font)
+            
+            text_w += 20 
+            text_h += 20
+
+            start_search_x = draw_right + 10
+            start_search_y = top
+            
+            if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
+                start_search_x = max(10, box_cx - (text_w // 2))
+                start_search_y = bottom + 15
+            
+            temp_mistake_rect = [left, top, draw_right, bottom]
+            search_rects = occupied_rects + [temp_mistake_rect]
+            
+            note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, search_rects)
+            occupied_rects.append(note_rect) 
+            
+            note_cx = note_rect[0] + text_w // 2
+            note_cy = note_rect[1] + text_h // 2
+            
+            if note_rect[1] >= bottom:      
+                line_start = (box_cx, bottom)
+            elif note_rect[3] <= top:       
+                line_start = (box_cx, top)
+            elif note_rect[0] >= draw_right:     
+                line_start = (draw_right, box_cy)
+            else:                           
+                line_start = (left, box_cy)
+
+            draw.line([line_start, (note_cx, note_cy)], fill=COLOR_WRONG, width=3)
+            draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=COLOR_WRONG, width=2)
+            draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=COLOR_WRONG, font=font)
+
+    # Finally, Paste the Stamp over everything
+    if stamp_img:
+        overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
+
+    final_img = Image.alpha_composite(original_img, overlay)
+    final_img.convert("RGB").save(output_path)
     print(f"Success! Fully graded image saved to: {output_path}")
 
 if __name__ == "__main__":
