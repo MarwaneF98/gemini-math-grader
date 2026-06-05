@@ -11,26 +11,21 @@
     <link rel="icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
 
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://gemini-math-grader.vercel.app/">
-    <meta property="og:title" content="AI Math Grader">
-    <meta property="og:description" content="An automated AI teaching assistant for grading handwritten math assignments.">
-    <meta property="og:image" content="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://gemini-math-grader.vercel.app/">
-    <meta name="twitter:title" content="AI Math Grader">
-    <meta name="twitter:description" content="An automated AI teaching assistant for grading handwritten math assignments.">
-    <meta name="twitter:image" content="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
-
     <style>
         :root {
-            --bg-color: #121212;
-            --container-bg: #1e1e1e;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0a0;
-            --border-color: #333333;
-            --accent-color: #2563eb; 
+            /* Premium Dark Theme Palette */
+            --bg-color: #09090b; /* Zinc 950 */
+            --container-bg: #18181b; /* Zinc 900 */
+            --text-primary: #f4f4f5; /* Zinc 50 */
+            --text-secondary: #a1a1aa; /* Zinc 400 */
+            --border-color: #27272a; /* Zinc 800 */
+            --border-hover: #3f3f46; /* Zinc 700 */
+            --accent-color: #3b82f6; /* Blue 500 */
+            --accent-hover: #2563eb; /* Blue 600 */
+            --radius-lg: 16px;
+            --radius-md: 10px;
+            --radius-sm: 6px;
+            --font-stack: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
         * {
@@ -42,47 +37,48 @@
         html, body {
             background-color: var(--bg-color);
             color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: var(--font-stack);
             margin: 0;
             padding: 0;
             width: 100vw;
             height: 100vh;
             height: 100dvh; 
             overflow: hidden; 
-            position: fixed; 
             display: flex;
             flex-direction: column;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* --- SLEEK LANGUAGE TOGGLE --- */
         .lang-toggle {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 24px;
+            right: 24px;
             display: flex;
-            background-color: var(--container-bg);
+            background-color: #000000;
             border: 1px solid var(--border-color);
-            border-radius: 20px;
-            overflow: hidden;
+            border-radius: 24px;
+            padding: 4px;
             z-index: 100;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
         .lang-toggle button {
             background: transparent;
             color: var(--text-secondary);
             border: none;
-            padding: 6px 14px;
+            padding: 6px 16px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            width: auto;
-            border-radius: 0;
+            border-radius: 20px;
             transition: all 0.2s ease;
         }
 
         .lang-toggle button.active {
-            background-color: var(--accent-color);
-            color: #ffffff;
+            background-color: var(--container-bg);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
 
         main {
@@ -90,172 +86,187 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 15px;
+            padding: 20px;
             overflow: hidden; 
             min-height: 0; 
         }
 
+        /* --- PREMIUM CARD UI --- */
         .container {
             background-color: var(--container-bg);
-            padding: 30px 24px; 
-            border-radius: 12px;
+            padding: 32px; 
+            border-radius: var(--radius-lg);
             border: 1px solid var(--border-color);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             width: 100%;
-            max-width: 500px;
-            max-height: 90vh; 
+            max-width: 440px;
+            max-height: 85vh; 
             overflow-y: auto;
             scrollbar-width: none; 
             -ms-overflow-style: none; 
             display: flex;
             flex-direction: column;
-            margin: auto; 
         }
         
-        .container::-webkit-scrollbar {
-            display: none; 
-        }
+        .container::-webkit-scrollbar { display: none; }
 
+        /* Left-aligned typography for a professional look */
         h1 {
             margin-top: 0;
-            font-size: 24px;
-            margin-bottom: 8px;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
             flex-shrink: 0;
-            text-align: center; 
+            text-align: left; 
+            text-wrap: balance; /* Prevents awkward title wrapping */
         }
 
         p.subtitle {
             color: var(--text-secondary);
             font-size: 14px;
             margin-top: 0;
-            margin-bottom: 24px;
-            line-height: 1.4;
+            margin-bottom: 28px;
+            line-height: 1.5;
             flex-shrink: 0;
-            text-align: center;
+            text-align: left;
         }
 
         .form-group {
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             flex-shrink: 0;
-            text-align: left; 
         }
 
         input[type="password"] {
             width: 100%;
-            padding: 12px;
+            padding: 14px 16px;
             background-color: var(--bg-color);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
-            border-radius: 4px;
-            font-size: 16px; 
+            border-radius: var(--radius-md);
+            font-size: 15px; 
             outline: none; 
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         input[type="password"]:focus {
             border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
-        input[type="file"] {
-            display: none; 
-        }
+        input[type="file"] { display: none; }
 
+        /* Modern Dropzone Style Upload */
         .custom-file-upload {
             display: flex;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
             width: 100%;
-            padding: 12px;
+            padding: 32px 20px;
             background-color: var(--bg-color);
-            border: 1px dashed var(--border-color);
-            border-radius: 4px;
+            border: 1.5px dashed var(--border-hover);
+            border-radius: var(--radius-md);
             cursor: pointer;
-            transition: border-color 0.2s ease;
+            transition: all 0.2s ease;
+            text-align: center;
         }
 
-        .custom-file-upload:active {
+        .custom-file-upload:hover, .custom-file-upload:active {
             border-color: var(--accent-color);
+            background-color: rgba(59, 130, 246, 0.03);
+        }
+
+        .upload-icon {
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            transition: color 0.2s ease;
+        }
+        
+        .custom-file-upload:hover .upload-icon {
+            color: var(--accent-color);
         }
 
         .upload-btn-text {
-            background-color: var(--container-bg);
-            border: 1px solid var(--border-color);
-            padding: 4px 10px;
-            border-radius: 4px;
             font-size: 14px;
+            font-weight: 500;
             color: var(--text-primary);
-            white-space: nowrap; 
-            flex-shrink: 0; 
+            margin-bottom: 4px;
         }
 
         .upload-file-name {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
-            flex: 1;
-            text-align: right;
-            margin-left: 12px;
+            max-width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
+        /* Standardized Premium Buttons */
         button.primary-btn {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background-color: var(--accent-color);
             color: #ffffff;
             border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: 500;
+            border-radius: var(--radius-md);
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
             cursor: pointer;
             outline: none; 
+            transition: background-color 0.2s ease;
             flex-shrink: 0;
             user-select: none; 
-            -webkit-user-select: none;
         }
 
-        button.primary-btn:active {
-            background-color: #1d4ed8; 
+        button.primary-btn:active, button.primary-btn:hover {
+            background-color: var(--accent-hover); 
         }
 
         button.primary-btn:disabled {
-            background-color: #555555;
+            background-color: var(--border-hover);
+            color: var(--text-secondary);
             cursor: not-allowed;
         }
 
         button.secondary-btn {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             background-color: transparent;
-            border: 1px solid var(--accent-color);
-            color: var(--accent-color);
-            border-radius: 4px;
-            font-size: 16px;
+            border: 1px solid var(--border-hover);
+            color: var(--text-primary);
+            border-radius: var(--radius-md);
+            font-size: 15px;
             font-weight: 500;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 12px;
+            transition: all 0.2s ease;
             flex-shrink: 0;
             user-select: none; 
-            -webkit-user-select: none;
         }
 
-        button.secondary-btn:active {
-            background-color: rgba(37, 99, 235, 0.1); 
+        button.secondary-btn:active, button.secondary-btn:hover {
+            background-color: var(--border-color); 
         }
 
         #status {
-            margin-top: 12px;
+            margin-top: 16px;
             font-size: 14px;
-            color: var(--text-secondary);
+            font-weight: 500;
+            color: var(--accent-color);
             text-align: center;
             flex-shrink: 0;
         }
 
         /* --- SNOWFLAKE ANIMATION --- */
         .loader-container {
-            display: none; /* Hidden by default */
+            display: none;
             justify-content: center;
             align-items: center;
-            margin-top: 30px;
-            margin-bottom: 10px;
+            margin-top: 24px;
+            margin-bottom: 8px;
             flex-shrink: 0;
         }
 
@@ -268,14 +279,13 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* --------------------------- */
 
         #result-section {
             display: none;
             flex-direction: column;
-            margin-top: 16px;
+            margin-top: 24px;
             border-top: 1px solid var(--border-color);
-            padding-top: 16px;
+            padding-top: 24px;
             flex: 1; 
             min-height: 0; 
         }
@@ -286,15 +296,17 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             overflow: hidden;
+            background-color: #000000;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
         }
 
         img#preview {
             max-width: 100%;
             max-height: 100%; 
             object-fit: contain; 
-            border-radius: 4px;
             pointer-events: auto; 
         }
 
@@ -306,21 +318,24 @@
 
         footer {
             text-align: center;
-            padding: 15px;
-            font-size: 12px;
+            padding: 20px;
+            font-size: 13px;
             color: var(--text-secondary);
-            border-top: 1px solid var(--border-color);
-            background-color: var(--container-bg);
             flex-shrink: 0;
             user-select: none;
-            -webkit-user-select: none;
         }
 
         #clear-key-link {
-            color: var(--accent-color);
+            color: var(--text-primary);
             text-decoration: none;
             margin: 0 8px;
             cursor: pointer;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        #clear-key-link:hover {
+            color: var(--accent-color);
         }
 
         #grader-screen {
@@ -337,6 +352,7 @@
     </div>
 
     <main>
+        <!-- Auth Screen -->
         <div id="auth-screen" class="container">
             <h1 id="t-auth-title">Access Grader</h1>
             <p class="subtitle" id="t-auth-sub">Please provide your Gemini API key to access the tool. It will be saved securely on your device.</p>
@@ -345,19 +361,26 @@
                 <div class="form-group">
                     <input type="password" id="api-key-input" required placeholder="Enter Gemini API Key">
                 </div>
-                <button type="submit" class="primary-btn" id="t-auth-btn">Enter</button>
+                <button type="submit" class="primary-btn" id="t-auth-btn">Authenticate</button>
             </form>
         </div>
 
+        <!-- Grader Screen -->
         <div id="grader-screen" class="container">
             <h1 id="t-grader-title">AI Math Grader</h1>
-            <p class="subtitle" id="t-grader-sub">Upload a photo of handwritten math to grade it.</p>
+            <p class="subtitle" id="t-grader-sub">Upload a photo of handwritten math to evaluate it.</p>
             
             <form id="grader-form">
                 <div class="form-group">
                     <label class="custom-file-upload">
                         <input type="file" id="paper-image" accept="image/*" required>
-                        <span class="upload-btn-text" id="t-choose-file">Choose File</span>
+                        <!-- Upload SVG Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span class="upload-btn-text" id="t-choose-file">Select Image File</span>
                         <span class="upload-file-name" id="file-name-display">No file chosen</span>
                     </label>
                 </div>
@@ -365,7 +388,7 @@
             </form>
 
             <div id="loader-container" class="loader-container">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
                     <line x1="2" y1="12" x2="22" y2="12"></line>
                     <line x1="12" y1="2" x2="12" y2="22"></line>
                     <path d="m20 16-4-4 4-4"></path>
@@ -402,10 +425,10 @@
                 authTitle: "Access Grader",
                 authSub: "Please provide your Gemini API key to access the tool. It will be saved securely on your device.",
                 keyPlace: "Enter Gemini API Key",
-                authBtn: "Enter",
+                authBtn: "Authenticate",
                 graderTitle: "AI Math Grader",
-                graderSub: "Upload a photo of handwritten math to grade it.",
-                chooseFile: "Choose File",
+                graderSub: "Upload a photo of handwritten math to evaluate it.",
+                chooseFile: "Select Image File",
                 noFile: "No file chosen",
                 gradeBtn: "Grade Paper",
                 downloadBtn: "Download Corrected Paper",
@@ -419,10 +442,10 @@
                 authTitle: "Accès au Correcteur",
                 authSub: "Veuillez fournir votre clé API Gemini. Elle sera enregistrée en toute sécurité sur votre appareil.",
                 keyPlace: "Entrez la clé API Gemini",
-                authBtn: "Entrer",
-                graderTitle: "Correcteur Mathématique IA",
-                graderSub: "Téléchargez une photo de mathématiques manuscrites pour la corriger.",
-                chooseFile: "Choisir un fichier",
+                authBtn: "S'authentifier",
+                graderTitle: "Correcteur Math. IA",
+                graderSub: "Téléchargez une photo de mathématiques manuscrites pour l'évaluer.",
+                chooseFile: "Sélectionner une Image",
                 noFile: "Aucun fichier choisi",
                 gradeBtn: "Corriger la Copie",
                 downloadBtn: "Télécharger la Copie Corrigée",
@@ -548,7 +571,6 @@
             document.getElementById('grader-form').style.display = 'none';
             resultSection.style.display = 'none';
             
-            // Turn on the animated snowflake
             loaderContainer.style.display = 'flex';
 
             try {
@@ -568,7 +590,6 @@
                 document.getElementById('preview').src = imageUrl;
                 document.getElementById('download-link').href = imageUrl;
                 
-                // Hide loader and show result
                 loaderContainer.style.display = 'none';
                 resultSection.style.display = 'flex';
                 statusText.textContent = uiText[currentLang].statusComplete;
