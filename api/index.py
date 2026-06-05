@@ -26,10 +26,10 @@ def serve_frontend():
         return f"CRITICAL ERROR: Could not load index.html. Ensure it is in the root folder. Details: {str(e)}", 500
 
 # --- DESIGN COLORS ---
-COLOR_CORRECT = (22, 163, 74, 255)       # Green
+COLOR_CORRECT = (22, 163, 74, 255)       # Green (Flawless)
 COLOR_ECF = (59, 130, 246, 255)          # Blue (Error Carried Forward)
-COLOR_MINOR = (245, 158, 11, 255)        # Amber/Orange for Minor Errors
-COLOR_WRONG = (220, 38, 38, 255)         # Red for Conceptual Errors
+COLOR_MINOR = (147, 51, 234, 255)        # Purple (Minor Errors - Replaces the yellow/orange!)
+COLOR_WRONG = (220, 38, 38, 255)         # Red (Conceptual Errors)
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size):
