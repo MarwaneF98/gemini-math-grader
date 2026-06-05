@@ -3,6 +3,7 @@ import io
 import json
 import time
 import math
+import base64
 import requests
 import textwrap
 from flask import Flask, request, send_file, Response
@@ -17,7 +18,7 @@ COLOR_NOTE_BG = (255, 255, 255, 245)
 
 def load_font(target_size):
     # Vercel containers do not have native fonts installed.
-    # We load a local font file bundled right inside your repository repository root.
+    # We load a local font file bundled right inside your repository root.
     local_font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Roboto-Bold.ttf")
     if os.path.exists(local_font_path):
         try:
@@ -31,7 +32,7 @@ def get_api_annotations(img_chunk, api_key):
     
     buffer = io.BytesIO()
     img_chunk.save(buffer, format="JPEG")
-    base64_image = base64_encode = requests.utils.base64.b64encode(buffer.getvalue()).decode('utf-8')
+    base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
     prompt = (
         "You are an expert math grader. Analyze this math page.\n"
@@ -54,8 +55,7 @@ def get_api_annotations(img_chunk, api_key):
             response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
-                result_text = result_text.replace('```json', '').replace('
-```', '').strip()
+                result_text = result_text.replace('```json', '').replace('```', '').strip()
                 try:
                     data = json.loads(result_text)
                     if isinstance(data, list):
@@ -138,7 +138,6 @@ def grade_api():
         return Response("No selected image", status=400)
 
     try:
-        # Load directly from memory buffer
         img_bytes = file.read()
         original_img = Image.open(io.BytesIO(img_bytes))
         original_img = ImageOps.exif_transpose(original_img).convert("RGBA")
@@ -273,7 +272,6 @@ def grade_api():
 
         final_img = Image.alpha_composite(original_img, overlay).convert("RGB")
         
-        # Save output directly to an in-memory byte buffer to return via HTTP
         output_io = io.BytesIO()
         final_img.save(output_io, format="JPEG", quality=90)
         output_io.seek(0)
@@ -282,4 +280,3 @@ def grade_api():
 
     except Exception as e:
         return Response(f"Internal Server Error: {str(e)}", status=500)
-
