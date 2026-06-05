@@ -47,6 +47,20 @@
             display: flex;
             flex-direction: column;
             -webkit-font-smoothing: antialiased;
+
+            /* DISABLE TEXT SELECTION GLOBALLY */
+            -webkit-user-select: none; /* Safari */
+            -moz-user-select: none;    /* Firefox */
+            -ms-user-select: none;     /* IE10+/Edge */
+            user-select: none;         /* Standard */
+        }
+
+        /* RE-ENABLE SELECTION FOR INPUTS ONLY (Needed for API key pasting/typing) */
+        input {
+            -webkit-user-select: auto;
+            -moz-user-select: auto;
+            -ms-user-select: auto;
+            user-select: auto;
         }
 
         /* --- SLEEK LANGUAGE TOGGLE --- */
@@ -119,7 +133,7 @@
             margin-bottom: 6px;
             flex-shrink: 0;
             text-align: left; 
-            text-wrap: balance; /* Prevents awkward title wrapping */
+            text-wrap: balance; 
         }
 
         p.subtitle {
@@ -218,6 +232,8 @@
             outline: none; 
             transition: background-color 0.2s ease;
             flex-shrink: 0;
+            /* Extra safety measure for buttons */
+            -webkit-user-select: none;
             user-select: none; 
         }
 
@@ -244,6 +260,8 @@
             margin-top: 12px;
             transition: all 0.2s ease;
             flex-shrink: 0;
+            /* Extra safety measure for buttons */
+            -webkit-user-select: none;
             user-select: none; 
         }
 
@@ -322,7 +340,6 @@
             font-size: 13px;
             color: var(--text-secondary);
             flex-shrink: 0;
-            user-select: none;
         }
 
         #clear-key-link {
