@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Math Grader</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border-color: #333333;
+            --accent-color: #2563eb; /* Professional Blue */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            padding: 40px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 0;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        input[type="password"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            /* Explicitly no transition/hover effects per request */
+        }
+
+        button:disabled {
+            background-color: #555555;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        #result-section {
+            display: none;
+            margin-top: 24px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 24px;
+        }
+
+        img#preview {
+            max-width: 100%;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            background-color: var(--container-bg);
+        }
+
+        /* Screen management */
+        #grader-screen {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <main>
+        <div id="auth-screen" class="container">
+            <h1>Access Grader</h1>
+            <p class="subtitle">Please provide your Gemini API key to access the tool. Your key is only used for this session.</p>
+            
+            <form id="auth-form">
+                <div class="form-group">
+                    <input type="password" id="api-key-input" required placeholder="Enter Gemini API Key">
+                </div>
+                <button type="submit">Enter</button>
+            </form>
+        </div>
+
+        <div id="grader-screen" class="container">
+            <h1>AI Math Grader</h1>
+            <p class="subtitle">Upload a photo of handwritten math to grade it.</p>
+            
+            <form id="grader-form">
+                <div class="form-group">
+                    <input type="file" id="paper-image" accept="image/*" required>
+                </div>
+                <button type="submit" id="submit-btn">Grade Paper</button>
+            </form>
+
+            <div id="status"></div>
+
+            <div id="result-section">
+                <img id="preview" alt="Graded Paper Preview">
+                <a id="download-btn" download="graded_paper.jpg" style="text-decoration: none; display: block;">
+                    <button type="button">Download Corrected Paper</button>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2026 Marwane Farhane. All rights reserved.
+    </footer>
+
+    <script>
+        // Store the API key in memory for this session
+        let sessionApiKey = "";
+
+        // Handle Screen 1 (Auth)
+        document.getElementById('auth-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const inputKey = document.getElementById('api-key-input').value.trim();
+            
+            if (inputKey) {
+                sessionApiKey = inputKey;
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('grader-screen').style.display = 'block';
+            }
+        });
+
+        // Handle Screen 2 (Grading)
+        document.getElementById('grader-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('paper-image');
+            const statusText = document.getElementById('status');
+            const submitBtn = document.getElementById('submit-btn');
+            const resultSection = document.getElementById('result-section');
+            
+            if (fileInput.files.length === 0) return;
+            
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('api_key', sessionApiKey); // Attach the key from memory
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            statusText.textContent = 'Analyzing and grading paper...';
+            resultSection.style.display = 'none';
+
+            try {
+                // Calls the Vercel Python Serverless Function (api/index.py)
+                const response = await fetch('/api/grade', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorMsg = await response.text();
+                    throw new Error(`Grading failed: ${errorMsg}`);
+                }
+
+                const imageBlob = await response.blob();
+                const imageUrl = URL.createObjectURL(imageBlob);
+
+                document.getElementById('preview').src = imageUrl;
+                document.getElementById('download-btn').href = imageUrl;
+                resultSection.style.display = 'block';
+                statusText.textContent = 'Grading complete!';
+                
+            } catch (error) {
+                console.error(error);
+                statusText.textContent = error.message;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Grade Paper';
+            }
+        });
+    </script>
+</body>
+</html>
