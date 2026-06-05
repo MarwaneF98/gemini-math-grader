@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI Math Grader</title>
     <style>
         :root {
@@ -11,7 +11,14 @@
             --text-primary: #ffffff;
             --text-secondary: #a0a0a0;
             --border-color: #333333;
-            --accent-color: #2563eb; /* Professional Blue */
+            --accent-color: #2563eb; 
+        }
+
+        /* GLOBAL FIXES */
+        * {
+            /* Kills the default blue square highlight on mobile tap */
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box;
         }
 
         body {
@@ -23,6 +30,8 @@
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            /* Prevents the rubber-band bouncy scrolling effect on mobile */
+            overscroll-behavior-y: none; 
         }
 
         main {
@@ -40,7 +49,6 @@
             border: 1px solid var(--border-color);
             width: 100%;
             max-width: 500px;
-            box-sizing: border-box;
         }
 
         h1 {
@@ -75,8 +83,12 @@
             border: 1px solid var(--border-color);
             color: var(--text-primary);
             border-radius: 4px;
-            box-sizing: border-box;
             font-size: 14px;
+            outline: none; /* Removes desktop focus rings */
+        }
+
+        input[type="password"]:focus {
+            border-color: var(--accent-color);
         }
 
         button {
@@ -89,7 +101,17 @@
             font-size: 16px;
             font-weight: 500;
             cursor: pointer;
-            /* Explicitly no transition/hover effects per request */
+            outline: none; /* Removes desktop focus rings */
+            
+            /* MOBILE APP FIXES */
+            user-select: none; /* Prevents text selection on long-press */
+            -webkit-user-select: none;
+            touch-action: manipulation; /* Disables double-tap-to-zoom only on the button */
+        }
+
+        button:active {
+            /* Adds a slight visual push effect instead of a blue square */
+            background-color: #1d4ed8; 
         }
 
         button:disabled {
@@ -116,6 +138,8 @@
             border-radius: 4px;
             margin-bottom: 16px;
             border: 1px solid var(--border-color);
+            /* Prevents users from accidentally saving/dragging the image while scrolling */
+            pointer-events: none; 
         }
 
         footer {
@@ -125,6 +149,7 @@
             color: var(--text-secondary);
             border-top: 1px solid var(--border-color);
             background-color: var(--container-bg);
+            user-select: none;
         }
 
         /* Screen management */
@@ -175,22 +200,23 @@
     </footer>
 
     <script>
-        // Store the API key in memory for this session
         let sessionApiKey = "";
 
-        // Handle Screen 1 (Auth)
         document.getElementById('auth-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const inputKey = document.getElementById('api-key-input').value.trim();
             
             if (inputKey) {
                 sessionApiKey = inputKey;
+                
+                // Hide keyboard immediately on mobile after entering key
+                document.getElementById('api-key-input').blur();
+                
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('grader-screen').style.display = 'block';
             }
         });
 
-        // Handle Screen 2 (Grading)
         document.getElementById('grader-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -204,7 +230,7 @@
             const file = fileInput.files[0];
             const formData = new FormData();
             formData.append('image', file);
-            formData.append('api_key', sessionApiKey); // Attach the key from memory
+            formData.append('api_key', sessionApiKey);
 
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
@@ -212,7 +238,6 @@
             resultSection.style.display = 'none';
 
             try {
-                // Calls the Vercel Python Serverless Function (api/index.py)
                 const response = await fetch('/api/grade', {
                     method: 'POST',
                     body: formData
@@ -228,6 +253,10 @@
 
                 document.getElementById('preview').src = imageUrl;
                 document.getElementById('download-btn').href = imageUrl;
+                
+                // Re-enable pointer events on the image preview so user can long-press to save if they want
+                document.getElementById('preview').style.pointerEvents = 'auto';
+                
                 resultSection.style.display = 'block';
                 statusText.textContent = 'Grading complete!';
                 
