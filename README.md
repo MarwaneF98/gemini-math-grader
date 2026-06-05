@@ -19,8 +19,8 @@ Whether you want to use the sleek web interface directly from your browser or ru
 * **Instant Web Access:** No installation required. Just visit the live site, enter your own API key, and start grading.
 * **Privacy-First API Key Storage:** In the web app, your Gemini API key is securely saved directly to your browser's local memory (`localStorage`). It is never stored on our servers.
 * **Bilingual Interface (EN/FR):** A sleek, app-like frontend with a seamless English/French language toggle. The AI's feedback and the graded stamp translate dynamically.
-* **Multimodal AI Grading:** Leverages Gemini's advanced vision capabilities to read and evaluate handwritten math equations, whiteboards, and digital screens.
-* **Strict Problem-Based Scoring:** Groups lines of math into distinct problems. The final grade requires the *final answer* to be correct, while still providing targeted line-by-line visual feedback for intermediate mistakes.
+* **Professor-Level Grading Logic (ECF):** Emulates a real university professor by using **Error Carried Forward (ECF)**. If a student makes a minor arithmetic mistake but their subsequent mathematical logic remains sound, they are not heavily penalized.
+* **Weighted Scoring & Dynamic Colors:** Grades line-by-line, awarding full points for correct steps, partial points for minor errors (highlighted in Amber/Orange), and zero points for conceptual errors (highlighted in Crimson Red).
 * **3-Phase Rendering Engine:** Eliminates visual traffic jams. It locks in the math boxes and grade stamp *first*, forcing detailed text feedback to route around them into safe, empty spaces using a radial search algorithm.
 
 ---
@@ -70,8 +70,8 @@ If you want to fork this project and host your own version of the website, it is
 ## 🧠 How it Works Under the Hood
  1. **Pre-Processing:** The script loads the image and corrects any hidden EXIF rotation data (common in mobile phone photos) so bounding boxes map perfectly to the visual text.
  2. **Prompting:** It sends the full image to Gemini with a strict prompt, forcing the AI to extract data into a perfectly formatted JSON array. It actively filters out polite conversational text to prevent JSON parsing crashes.
- 3. **Phase 1 (Strict Scoring & Stamp):** It calculates the final score based *only* on problems where the final answer is correct. It then pastes an opaque "Score Stamp" in the top right corner and registers this area as "Occupied".
- 4. **Phase 2 (Math Boxes & Marks):** It maps out the individual equation lines, drawing Checkmarks and Xs neatly in the right margin to show exactly where the student succeeded or failed.
+ 3. **Phase 1 (Weighted Scoring & Stamp):** It calculates a weighted final score by evaluating every single line. Correct steps and ECF steps earn full credit, minor errors earn partial credit, and conceptual errors earn zero. It then pastes an opaque "Score Stamp" in the top right corner and registers this area as "Occupied".
+ 4. **Phase 2 (Dynamic Math Boxes & Marks):** It maps out the individual equation lines in the right margin, drawing Green checkmarks for correct steps, Orange boxes for minor mistakes, and Red boxes for conceptual failures.
  5. **Phase 3 (Smart Routing):** It evaluates incorrect steps and draws text feedback boxes. Using a custom radial search algorithm, the notes dynamically look for empty space nearby, gracefully dodging the stamp, the margin marks, the original equations, and other notes!
 ## 📄 License
 © 2026 Marwane Farhane. Licensed under the MIT License. Feel free to use, modify, and distribute it!
