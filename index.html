@@ -102,20 +102,17 @@
             border: 1px solid var(--border-color);
             width: 100%;
             max-width: 500px;
-            
-            /* Give it slightly more room and allow internal scrolling just in case */
             max-height: 90vh; 
             overflow-y: auto;
-            scrollbar-width: none; /* Hide scrollbar Firefox */
-            -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
-            
+            scrollbar-width: none; 
+            -ms-overflow-style: none; 
             display: flex;
             flex-direction: column;
             margin: auto; 
         }
         
         .container::-webkit-scrollbar {
-            display: none; /* Hide scrollbar Chrome/Safari */
+            display: none; 
         }
 
         h1 {
@@ -252,6 +249,27 @@
             flex-shrink: 0;
         }
 
+        /* --- SNOWFLAKE ANIMATION --- */
+        .loader-container {
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            margin-top: 30px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .snowflake-icon {
+            animation: spin 2s linear infinite;
+            color: var(--accent-color);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* --------------------------- */
+
         #result-section {
             display: none;
             flex-direction: column;
@@ -262,10 +280,9 @@
             min-height: 0; 
         }
 
-        /* --- CRITICAL FIX FOR IMAGE OVERFLOW --- */
         .preview-wrapper {
             flex: 1;
-            min-height: 0; /* Tells flexbox it's allowed to shrink */
+            min-height: 0; 
             display: flex;
             align-items: center;
             justify-content: center;
@@ -275,12 +292,11 @@
 
         img#preview {
             max-width: 100%;
-            max-height: 100%; /* Forces image to respect the wrapper's size */
+            max-height: 100%; 
             object-fit: contain; 
             border-radius: 4px;
             pointer-events: auto; 
         }
-        /* --------------------------------------- */
 
         #download-link {
             text-decoration: none; 
@@ -347,6 +363,17 @@
                 </div>
                 <button type="submit" class="primary-btn" id="submit-btn">Grade Paper</button>
             </form>
+
+            <div id="loader-container" class="loader-container">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <line x1="12" y1="2" x2="12" y2="22"></line>
+                    <path d="m20 16-4-4 4-4"></path>
+                    <path d="m4 8 4 4-4 4"></path>
+                    <path d="m16 4-4 4-4-4"></path>
+                    <path d="m8 20 4-4 4 4"></path>
+                </svg>
+            </div>
 
             <div id="status"></div>
 
@@ -481,6 +508,7 @@
             fileInput.value = '';
             fileNameDisplay.textContent = uiText[currentLang].noFile;
             document.getElementById('result-section').style.display = 'none';
+            document.getElementById('loader-container').style.display = 'none';
             document.querySelector('#grader-screen p.subtitle').style.display = 'block';
             document.getElementById('grader-form').style.display = 'block';
             document.getElementById('status').textContent = '';
@@ -490,6 +518,7 @@
             fileInput.value = '';
             fileNameDisplay.textContent = uiText[currentLang].noFile;
             document.getElementById('result-section').style.display = 'none';
+            document.getElementById('loader-container').style.display = 'none';
             document.querySelector('#grader-screen p.subtitle').style.display = 'block';
             document.getElementById('grader-form').style.display = 'block';
             document.getElementById('status').textContent = '';
@@ -501,6 +530,7 @@
             const statusText = document.getElementById('status');
             const submitBtn = document.getElementById('submit-btn');
             const resultSection = document.getElementById('result-section');
+            const loaderContainer = document.getElementById('loader-container');
             
             if (fileInput.files.length === 0) return;
             
@@ -517,6 +547,9 @@
             document.querySelector('#grader-screen p.subtitle').style.display = 'none';
             document.getElementById('grader-form').style.display = 'none';
             resultSection.style.display = 'none';
+            
+            // Turn on the animated snowflake
+            loaderContainer.style.display = 'flex';
 
             try {
                 const response = await fetch('/api/grade', {
@@ -535,12 +568,15 @@
                 document.getElementById('preview').src = imageUrl;
                 document.getElementById('download-link').href = imageUrl;
                 
+                // Hide loader and show result
+                loaderContainer.style.display = 'none';
                 resultSection.style.display = 'flex';
                 statusText.textContent = uiText[currentLang].statusComplete;
                 
             } catch (error) {
                 console.error(error);
                 statusText.textContent = error.message;
+                loaderContainer.style.display = 'none';
                 document.getElementById('grader-form').style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
