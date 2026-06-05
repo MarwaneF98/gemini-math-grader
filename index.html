@@ -18,10 +18,10 @@
         * {
             -webkit-tap-highlight-color: transparent; 
             box-sizing: border-box;
-            touch-action: none; /* Kills pinch-to-zoom and pan natively */
+            touch-action: none; 
         }
 
-        /* 2. PREVENT SCROLLING: Lock the body to exactly the device height */
+        /* 2. PREVENT SCROLLING */
         html, body {
             background-color: var(--bg-color);
             color: var(--text-primary);
@@ -30,9 +30,9 @@
             padding: 0;
             width: 100vw;
             height: 100vh;
-            height: 100dvh; /* Accounts for mobile browser URL bars */
-            overflow: hidden; /* Destroys scrollbars */
-            position: fixed; /* Locks page in place */
+            height: 100dvh; 
+            overflow: hidden; 
+            position: fixed; 
             display: flex;
             flex-direction: column;
         }
@@ -43,8 +43,8 @@
             justify-content: center;
             align-items: center;
             padding: 15px;
-            overflow: hidden; /* Prevents internal scrolling */
-            min-height: 0; /* Critical for flexbox shrinking */
+            overflow: hidden; 
+            min-height: 0; 
         }
 
         .container {
@@ -87,7 +87,7 @@
             border: 1px solid var(--border-color);
             color: var(--text-primary);
             border-radius: 4px;
-            font-size: 16px; /* 16px forces iOS to not auto-zoom on focus */
+            font-size: 16px; 
             outline: none; 
         }
 
@@ -120,6 +120,18 @@
             cursor: not-allowed;
         }
 
+        /* Secondary Outline Button Style */
+        button.secondary-btn {
+            background-color: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            margin-top: 10px;
+        }
+
+        button.secondary-btn:active {
+            background-color: rgba(37, 99, 235, 0.1); 
+        }
+
         #status {
             margin-top: 12px;
             font-size: 13px;
@@ -128,23 +140,23 @@
             flex-shrink: 0;
         }
 
-        /* 3. DYNAMIC SHRINKING: Image section fits remaining space */
+        /* 3. DYNAMIC SHRINKING */
         #result-section {
             display: none;
             flex-direction: column;
             margin-top: 16px;
             border-top: 1px solid var(--border-color);
             padding-top: 16px;
-            flex: 1; /* Takes remaining space */
-            min-height: 0; /* Allows shrinking below content size */
+            flex: 1; 
+            min-height: 0; 
             overflow: hidden;
         }
 
         img#preview {
             width: 100%;
-            flex: 1; /* Image takes available flex space */
-            min-height: 0; /* Crucial: allows image to shrink instead of overflowing container */
-            object-fit: contain; /* Scales image without stretching or cropping */
+            flex: 1; 
+            min-height: 0; 
+            object-fit: contain; 
             border-radius: 4px;
             margin-bottom: 16px;
             pointer-events: none; 
@@ -153,7 +165,7 @@
         #download-link {
             text-decoration: none; 
             display: block;
-            flex-shrink: 0; /* Prevents button from being crushed */
+            flex-shrink: 0; 
         }
 
         footer {
@@ -168,9 +180,16 @@
             -webkit-user-select: none;
         }
 
+        #clear-key-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            margin-left: 8px;
+            cursor: pointer;
+        }
+
         #grader-screen {
             display: none;
-            height: 100%; /* Take full height of main */
+            height: 100%; 
         }
     </style>
 </head>
@@ -179,7 +198,7 @@
     <main>
         <div id="auth-screen" class="container">
             <h1>Access Grader</h1>
-            <p class="subtitle">Please provide your Gemini API key to access the tool. Your key is only used for this session.</p>
+            <p class="subtitle">Please provide your Gemini API key to access the tool. It will be saved securely on your device.</p>
             
             <form id="auth-form">
                 <div class="form-group">
@@ -207,12 +226,13 @@
                 <a id="download-link" download="graded_paper.jpg">
                     <button type="button">Download Corrected Paper</button>
                 </a>
+                <button type="button" id="new-paper-btn" class="secondary-btn">Grade Another Paper</button>
             </div>
         </div>
     </main>
 
     <footer>
-        &copy; 2026 Marwane Farhane. All rights reserved.
+        &copy; 2026 Marwane Farhane. <a href="#" id="clear-key-link">Change API Key</a>
     </footer>
 
     <script>
@@ -227,19 +247,58 @@
 
         let sessionApiKey = "";
 
+        // CHECK MEMORY: If key exists in local storage, skip the auth screen
+        const savedKey = localStorage.getItem('gemini_api_key');
+        if (savedKey) {
+            sessionApiKey = savedKey;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('grader-screen').style.display = 'flex';
+        }
+
+        // HANDLE AUTH LOGIN
         document.getElementById('auth-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const inputKey = document.getElementById('api-key-input').value.trim();
             
             if (inputKey) {
                 sessionApiKey = inputKey;
+                localStorage.setItem('gemini_api_key', inputKey); // Save to browser memory
+                
                 document.getElementById('api-key-input').blur();
                 document.getElementById('auth-screen').style.display = 'none';
-                // Use flex here to maintain the container's layout structure
                 document.getElementById('grader-screen').style.display = 'flex';
             }
         });
 
+        // HANDLE LOGOUT / CHANGE KEY
+        document.getElementById('clear-key-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            localStorage.removeItem('gemini_api_key'); // Delete from memory
+            sessionApiKey = "";
+            document.getElementById('api-key-input').value = "";
+            
+            // Reset UI back to auth screen
+            document.getElementById('grader-screen').style.display = 'none';
+            document.getElementById('auth-screen').style.display = 'flex';
+            
+            // Also reset the grader form just in case
+            document.getElementById('paper-image').value = '';
+            document.getElementById('result-section').style.display = 'none';
+            document.querySelector('#grader-screen p.subtitle').style.display = 'block';
+            document.getElementById('grader-form').style.display = 'block';
+            document.getElementById('status').textContent = '';
+        });
+
+        // HANDLE NEW PAPER RESET
+        document.getElementById('new-paper-btn').addEventListener('click', () => {
+            document.getElementById('paper-image').value = '';
+            document.getElementById('result-section').style.display = 'none';
+            document.querySelector('#grader-screen p.subtitle').style.display = 'block';
+            document.getElementById('grader-form').style.display = 'block';
+            document.getElementById('status').textContent = '';
+        });
+
+        // HANDLE GRADING SUBMISSION
         document.getElementById('grader-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -259,7 +318,6 @@
             submitBtn.textContent = 'Processing...';
             statusText.textContent = 'Analyzing and grading paper...';
             
-            // Hide the form and subtitle to maximize space for the image
             document.querySelector('#grader-screen p.subtitle').style.display = 'none';
             document.getElementById('grader-form').style.display = 'none';
             resultSection.style.display = 'none';
@@ -288,25 +346,10 @@
             } catch (error) {
                 console.error(error);
                 statusText.textContent = error.message;
-                // If it fails, bring the upload form back
                 document.getElementById('grader-form').style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Grade New Paper';
-                
-                // Allow resetting the form
-                submitBtn.onclick = function(e) {
-                    if (submitBtn.textContent === 'Grade New Paper') {
-                        e.preventDefault();
-                        fileInput.value = '';
-                        resultSection.style.display = 'none';
-                        document.querySelector('#grader-screen p.subtitle').style.display = 'block';
-                        document.getElementById('grader-form').style.display = 'block';
-                        submitBtn.textContent = 'Grade Paper';
-                        statusText.textContent = '';
-                        submitBtn.onclick = null; // Remove this specific listener
-                    }
-                };
+                submitBtn.textContent = 'Grade Paper';
             }
         });
     </script>
