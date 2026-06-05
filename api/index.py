@@ -6,17 +6,11 @@ import math
 import base64
 import requests
 import textwrap
-import urllib.request
 from flask import Flask, request, send_file, Response
 from PIL import Image, ImageDraw, ImageFont, ImageOps
-import arabic_reshaper
-from bidi.algorithm import get_display
 
 app = Flask(__name__)
 
-# ==========================================
-# ROUTE 1: SERVE THE FRONTEND HTML
-# ==========================================
 @app.route('/')
 def serve_frontend():
     try:
@@ -28,29 +22,12 @@ def serve_frontend():
     except Exception as e:
         return f"CRITICAL ERROR: Could not load index.html. Details: {str(e)}", 500
 
-# --- DESIGN COLORS ---
 COLOR_CORRECT = (22, 163, 74, 255)       
 COLOR_WRONG = (220, 38, 38, 255)         
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size):
-    # Vercel gives us a temporary /tmp folder to use while the server runs.
-    font_path = "/tmp/NotoSansArabic-Bold.ttf"
-    
-    # Direct link to Google's raw font file (Supports EN, FR, AR)
-    font_url = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf"
-    
-    # Download the font only if it hasn't been downloaded yet
-    if not os.path.exists(font_path):
-        try:
-            urllib.request.urlretrieve(font_url, font_path)
-        except Exception:
-            return ImageFont.load_default()
-            
-    try:
-        return ImageFont.truetype(font_path, size=target_size)
-    except IOError:
-        return ImageFont.load_default()
+    return ImageFont.load_default()
 
 def get_api_annotations(img_chunk, api_key, language_name):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
@@ -150,18 +127,12 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     
     score_label = "SCORE"
     if lang_code == "FR": score_label = "NOTE"
-    if lang_code == "AR": 
-        reshaped = arabic_reshaper.reshape("النتيجة")
-        score_label = get_display(reshaped)
 
     s_draw.text((stamp_size//2, stamp_size//4 + 10), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, stamp_size//2 + 15), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
     return stamp.rotate(-15, expand=True, resample=Image.BICUBIC)
 
-# ==========================================
-# ROUTE 2: API GRADING ENGINE
-# ==========================================
 @app.route('/api/grade', methods=['POST'])
 def grade_api():
     if 'image' not in request.files or 'api_key' not in request.form:
@@ -171,7 +142,7 @@ def grade_api():
     api_key = request.form['api_key']
     lang_code = request.form.get('language', 'EN')
     
-    lang_map = {"EN": "English", "FR": "French", "AR": "Arabic"}
+    lang_map = {"EN": "English", "FR": "French"}
     language_name = lang_map.get(lang_code, "English")
 
     if file.filename == '':
@@ -272,15 +243,8 @@ def grade_api():
                 char_width_estimate = int(width * 0.015) 
                 max_chars = max(15, int((width * 0.25) / char_width_estimate))
                 wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
-                
-                # Correctly reshape Arabic text for the PIL engine
-                if lang_code == "AR":
-                    reshaped_text = arabic_reshaper.reshape(wrapped_feedback)
-                    display_feedback = get_display(reshaped_text)
-                else:
-                    display_feedback = wrapped_feedback
 
-                bbox = draw.textbbox((0, 0), display_feedback, font=font)
+                bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
                 text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
                 text_w += 20 
                 text_h += 20
@@ -312,7 +276,7 @@ def grade_api():
 
                 draw.line([line_start, (note_cx, note_cy)], fill=COLOR_WRONG, width=3)
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=COLOR_WRONG, width=2)
-                draw.text((note_rect[0] + 10, note_rect[1] + 10), display_feedback, fill=COLOR_WRONG, font=font)
+                draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=COLOR_WRONG, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
