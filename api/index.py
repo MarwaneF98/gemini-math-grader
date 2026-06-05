@@ -34,7 +34,6 @@ def load_font(target_size):
     return ImageFont.load_default()
 
 def get_api_annotations(img_chunk, api_key, language_name):
-    # Using the 3.5-flash model as you requested
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
     
     buffer = io.BytesIO()
@@ -47,44 +46,23 @@ def get_api_annotations(img_chunk, api_key, language_name):
         "1. DO NOT grade signatures, names, dates, or plain text. ABSOLUTELY IGNORE anything at the very bottom of the page.\n"
         "2. Group the math into distinct problems. For each problem, determine if the FINAL answer is correct.\n"
         "3. Inside each problem, provide exactly ONE bounding box per horizontal line of math. Keep bounding boxes TIGHT.\n"
-        f"4. CRITICAL: Write all 'feedback' strictly in {language_name}."
+        f"4. CRITICAL: Write all 'feedback' strictly in {language_name}.\n"
+        "Return ONLY a raw JSON array of problem objects. Keys for each problem:\n"
+        "- 'problem_final_correct' (boolean: true ONLY if the final result for this specific problem is correct. False if they got the answer wrong).\n"
+        "- 'lines' (array of objects for each line of math in the problem. Keys: 'is_correct' (boolean), 'feedback' (string, max 8 words if wrong, empty if correct), 'box_2d' (array of 4 ints: [ymin, xmin, ymax, xmax] normalized to 1000))."
     )
 
-    # Force Gemini to return STRICT, flawless JSON matching your exact needs
+    # REVERTED to your simple, working payload!
     payload = {
         "contents": [{"parts": [{"text": prompt}, {"inlineData": {"mimeType": "image/jpeg", "data": base64_image}}]}],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseSchema": {
-                "type": "ARRAY",
-                "items": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "problem_final_correct": {"type": "BOOLEAN"},
-                        "lines": {
-                            "type": "ARRAY",
-                            "items": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "is_correct": {"type": "BOOLEAN"},
-                                    "feedback": {"type": "STRING"},
-                                    "box_2d": {
-                                        "type": "ARRAY",
-                                        "items": {"type": "INTEGER"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        "generationConfig": {"responseMimeType": "application/json"}
     }
 
     for attempt in range(3): 
         try:
             print(f"Attempt {attempt + 1}: Sending image to API...")
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+            # Increased timeout to 50 seconds to match the Vercel upgrade
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=50)
             
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
@@ -103,7 +81,6 @@ def get_api_annotations(img_chunk, api_key, language_name):
             print(f"Connection Exception: {str(e)}")
             time.sleep(1)
             
-    # Return None instead of [] so we can trigger a real error on the frontend
     return None
 
 def is_overlapping(new_rect, occupied_rects, padding=10):
@@ -207,7 +184,6 @@ def grade_api():
         print("Starting AI Analysis...")
         grading_results = get_api_annotations(api_img, api_key, language_name)
 
-        # CATCH SILENT FAILURE: Send actual error to frontend
         if grading_results is None:
             return Response("Failed to analyze the math. The AI timed out or the API key is invalid. Please check Vercel logs.", status=500)
 
