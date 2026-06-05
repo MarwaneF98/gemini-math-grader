@@ -52,31 +52,39 @@
             position: fixed; 
             display: flex;
             flex-direction: column;
-            transition: direction 0.3s ease;
         }
 
-        .lang-switch-wrapper {
+        /* --- SLEEK LANGUAGE TOGGLE --- */
+        .lang-toggle {
             position: absolute;
             top: 20px;
             right: 20px;
+            display: flex;
+            background-color: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            overflow: hidden;
             z-index: 100;
         }
 
-        [dir="rtl"] .lang-switch-wrapper {
-            right: auto;
-            left: 20px;
+        .lang-toggle button {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            width: auto;
+            border-radius: 0;
+            transition: all 0.2s ease;
         }
 
-        select#lang-select {
-            background-color: var(--container-bg);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            outline: none;
-            cursor: pointer;
+        .lang-toggle button.active {
+            background-color: var(--accent-color);
+            color: #ffffff;
         }
+        /* ------------------------------ */
 
         main {
             flex: 1;
@@ -125,10 +133,6 @@
             text-align: left; 
         }
 
-        [dir="rtl"] .form-group {
-            text-align: right;
-        }
-
         input[type="password"] {
             width: 100%;
             padding: 12px;
@@ -144,9 +148,8 @@
             border-color: var(--accent-color);
         }
 
-        /* --- CUSTOM FILE UPLOAD STYLING --- */
         input[type="file"] {
-            display: none; /* Hide the ugly browser default */
+            display: none; 
         }
 
         .custom-file-upload {
@@ -184,12 +187,7 @@
             text-overflow: ellipsis;
         }
 
-        [dir="rtl"] .custom-file-upload {
-            flex-direction: row-reverse;
-        }
-        /* ---------------------------------- */
-
-        button {
+        button.primary-btn {
             width: 100%;
             padding: 12px;
             background-color: var(--accent-color);
@@ -205,20 +203,29 @@
             -webkit-user-select: none;
         }
 
-        button:active {
+        button.primary-btn:active {
             background-color: #1d4ed8; 
         }
 
-        button:disabled {
+        button.primary-btn:disabled {
             background-color: #555555;
             cursor: not-allowed;
         }
 
         button.secondary-btn {
+            width: 100%;
+            padding: 12px;
             background-color: transparent;
             border: 1px solid var(--accent-color);
             color: var(--accent-color);
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
             margin-top: 10px;
+            flex-shrink: 0;
+            user-select: none; 
+            -webkit-user-select: none;
         }
 
         button.secondary-btn:active {
@@ -287,12 +294,9 @@
 </head>
 <body>
 
-    <div class="lang-switch-wrapper">
-        <select id="lang-select">
-            <option value="EN">English</option>
-            <option value="FR">Français</option>
-            <option value="AR">العربية</option>
-        </select>
+    <div class="lang-toggle">
+        <button id="lang-btn-en" class="active" onclick="setLanguage('EN')">EN</button>
+        <button id="lang-btn-fr" onclick="setLanguage('FR')">FR</button>
     </div>
 
     <main>
@@ -304,7 +308,7 @@
                 <div class="form-group">
                     <input type="password" id="api-key-input" required placeholder="Enter Gemini API Key">
                 </div>
-                <button type="submit" id="t-auth-btn">Enter</button>
+                <button type="submit" class="primary-btn" id="t-auth-btn">Enter</button>
             </form>
         </div>
 
@@ -320,7 +324,7 @@
                         <span class="upload-file-name" id="file-name-display">No file chosen</span>
                     </label>
                 </div>
-                <button type="submit" id="submit-btn">Grade Paper</button>
+                <button type="submit" class="primary-btn" id="submit-btn">Grade Paper</button>
             </form>
 
             <div id="status"></div>
@@ -328,7 +332,7 @@
             <div id="result-section">
                 <img id="preview" alt="Graded Paper Preview">
                 <a id="download-link" download="graded_paper.jpg">
-                    <button type="button" id="t-download-btn">Download Corrected Paper</button>
+                    <button type="button" class="primary-btn" id="t-download-btn">Download Corrected Paper</button>
                 </a>
                 <button type="button" id="new-paper-btn" class="secondary-btn">Grade Another Paper</button>
             </div>
@@ -343,7 +347,7 @@
         document.addEventListener('touchmove', function(event) { event.preventDefault(); }, { passive: false });
         document.addEventListener('gesturestart', function(event) { event.preventDefault(); });
 
-        // --- TRANSLATION DICTIONARY ---
+        // --- TRANSLATION DICTIONARY (EN & FR ONLY) ---
         const uiText = {
             EN: {
                 authTitle: "Access Grader",
@@ -378,32 +382,13 @@
                 statusProcess: "Traitement en cours...",
                 statusAnalyze: "Analyse et correction en cours...",
                 statusComplete: "Correction terminée !"
-            },
-            AR: {
-                authTitle: "تسجيل الدخول للمصحح",
-                authSub: "يرجى تقديم مفتاح Gemini API الخاص بك للوصول إلى الأداة. سيتم حفظه بأمان على جهازك.",
-                keyPlace: "أدخل مفتاح Gemini API",
-                authBtn: "دخول",
-                graderTitle: "مصحح الرياضيات بالذكاء الاصطناعي",
-                graderSub: "قم بتحميل صورة للرياضيات المكتوبة بخط اليد لتصحيحها.",
-                chooseFile: "اختر ملف",
-                noFile: "لم يتم اختيار أي ملف",
-                gradeBtn: "تصحيح الورقة",
-                downloadBtn: "تحميل الورقة المصححة",
-                newPaperBtn: "تصحيح ورقة أخرى",
-                changeKey: "تغيير مفتاح API",
-                statusProcess: "جاري المعالجة...",
-                statusAnalyze: "جاري تحليل وتصحيح الورقة...",
-                statusComplete: "اكتمل التصحيح!"
             }
         };
 
         let currentLang = "EN";
-        const langSelect = document.getElementById('lang-select');
         const fileInput = document.getElementById('paper-image');
         const fileNameDisplay = document.getElementById('file-name-display');
 
-        // Update File Name when user selects an image
         fileInput.addEventListener('change', function() {
             if (this.files && this.files.length > 0) {
                 fileNameDisplay.textContent = this.files[0].name;
@@ -412,12 +397,16 @@
             }
         });
 
-        function updateLanguage(lang) {
+        function setLanguage(lang) {
             currentLang = lang;
             const t = uiText[lang];
             
+            // Update button styles
+            document.getElementById('lang-btn-en').classList.remove('active');
+            document.getElementById('lang-btn-fr').classList.remove('active');
+            document.getElementById(`lang-btn-${lang.toLowerCase()}`).classList.add('active');
+            
             document.documentElement.lang = lang.toLowerCase();
-            document.documentElement.dir = lang === "AR" ? "rtl" : "ltr";
 
             document.getElementById('t-auth-title').textContent = t.authTitle;
             document.getElementById('t-auth-sub').textContent = t.authSub;
@@ -427,7 +416,6 @@
             document.getElementById('t-grader-title').textContent = t.graderTitle;
             document.getElementById('t-grader-sub').textContent = t.graderSub;
             
-            // Translate the custom file button
             document.getElementById('t-choose-file').textContent = t.chooseFile;
             if (!fileInput.files || fileInput.files.length === 0) {
                 fileNameDisplay.textContent = t.noFile;
@@ -440,10 +428,6 @@
             document.getElementById('new-paper-btn').textContent = t.newPaperBtn;
             document.getElementById('clear-key-link').textContent = t.changeKey;
         }
-
-        langSelect.addEventListener('change', (e) => {
-            updateLanguage(e.target.value);
-        });
 
         // Initialize Core Logic
         let sessionApiKey = "";
