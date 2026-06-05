@@ -84,7 +84,6 @@
             background-color: var(--accent-color);
             color: #ffffff;
         }
-        /* ------------------------------ */
 
         main {
             flex: 1;
@@ -103,10 +102,20 @@
             border: 1px solid var(--border-color);
             width: 100%;
             max-width: 500px;
-            max-height: 85vh; 
+            
+            /* Give it slightly more room and allow internal scrolling just in case */
+            max-height: 90vh; 
+            overflow-y: auto;
+            scrollbar-width: none; /* Hide scrollbar Firefox */
+            -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
+            
             display: flex;
             flex-direction: column;
             margin: auto; 
+        }
+        
+        .container::-webkit-scrollbar {
+            display: none; /* Hide scrollbar Chrome/Safari */
         }
 
         h1 {
@@ -155,7 +164,6 @@
         .custom-file-upload {
             display: flex;
             align-items: center;
-            justify-content: space-between;
             width: 100%;
             padding: 12px;
             background-color: var(--bg-color);
@@ -176,12 +184,16 @@
             border-radius: 4px;
             font-size: 14px;
             color: var(--text-primary);
+            white-space: nowrap; 
+            flex-shrink: 0; 
         }
 
         .upload-file-name {
             font-size: 14px;
             color: var(--text-secondary);
-            max-width: 60%;
+            flex: 1;
+            text-align: right;
+            margin-left: 12px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -248,18 +260,27 @@
             padding-top: 16px;
             flex: 1; 
             min-height: 0; 
+        }
+
+        /* --- CRITICAL FIX FOR IMAGE OVERFLOW --- */
+        .preview-wrapper {
+            flex: 1;
+            min-height: 0; /* Tells flexbox it's allowed to shrink */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
             overflow: hidden;
         }
 
         img#preview {
-            width: 100%;
-            flex: 1; 
-            min-height: 0; 
+            max-width: 100%;
+            max-height: 100%; /* Forces image to respect the wrapper's size */
             object-fit: contain; 
             border-radius: 4px;
-            margin-bottom: 16px;
-            pointer-events: none; 
+            pointer-events: auto; 
         }
+        /* --------------------------------------- */
 
         #download-link {
             text-decoration: none; 
@@ -330,7 +351,9 @@
             <div id="status"></div>
 
             <div id="result-section">
-                <img id="preview" alt="Graded Paper Preview">
+                <div class="preview-wrapper">
+                    <img id="preview" alt="Graded Paper Preview">
+                </div>
                 <a id="download-link" download="graded_paper.jpg">
                     <button type="button" class="primary-btn" id="t-download-btn">Download Corrected Paper</button>
                 </a>
@@ -347,7 +370,6 @@
         document.addEventListener('touchmove', function(event) { event.preventDefault(); }, { passive: false });
         document.addEventListener('gesturestart', function(event) { event.preventDefault(); });
 
-        // --- TRANSLATION DICTIONARY (EN & FR ONLY) ---
         const uiText = {
             EN: {
                 authTitle: "Access Grader",
@@ -401,7 +423,6 @@
             currentLang = lang;
             const t = uiText[lang];
             
-            // Update button styles
             document.getElementById('lang-btn-en').classList.remove('active');
             document.getElementById('lang-btn-fr').classList.remove('active');
             document.getElementById(`lang-btn-${lang.toLowerCase()}`).classList.add('active');
@@ -429,7 +450,6 @@
             document.getElementById('clear-key-link').textContent = t.changeKey;
         }
 
-        // Initialize Core Logic
         let sessionApiKey = "";
         const savedKey = localStorage.getItem('gemini_api_key');
         if (savedKey) {
@@ -514,7 +534,6 @@
 
                 document.getElementById('preview').src = imageUrl;
                 document.getElementById('download-link').href = imageUrl;
-                document.getElementById('preview').style.pointerEvents = 'auto';
                 
                 resultSection.style.display = 'flex';
                 statusText.textContent = uiText[currentLang].statusComplete;
