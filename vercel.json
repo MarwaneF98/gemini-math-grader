@@ -1,6 +1,14 @@
 {
-  "rewrites": [
-    { "source": "/api/grade", "destination": "/api/grade.py" },
-    { "source": "/(.*)", "destination": "/$1" }
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.py"
+    }
   ]
 }
