@@ -17,11 +17,8 @@ app = Flask(__name__)
 @app.route('/')
 def serve_frontend():
     try:
-        # Navigate up to the root directory to find index.html
         root_dir = os.path.dirname(os.path.dirname(__file__))
         index_path = os.path.join(root_dir, 'index.html')
-        
-        # Read the file directly into memory and send it to the browser
         with open(index_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         return Response(html_content, mimetype='text/html')
@@ -29,8 +26,9 @@ def serve_frontend():
         return f"CRITICAL ERROR: Could not load index.html. Ensure it is in the root folder. Details: {str(e)}", 500
 
 # --- DESIGN COLORS ---
-COLOR_CORRECT = (22, 163, 74, 255)       
-COLOR_WRONG = (220, 38, 38, 255)         
+COLOR_CORRECT = (22, 163, 74, 255)       # Green
+COLOR_MINOR = (245, 158, 11, 255)        # Amber/Orange for Minor Errors
+COLOR_WRONG = (220, 38, 38, 255)         # Red for Conceptual Errors
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size):
@@ -50,15 +48,17 @@ def get_api_annotations(img_chunk, api_key, language_name):
     base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
     prompt = (
-        "You are an expert math grader. Analyze this math page.\n"
+        "You are an expert mathematics professor grading a paper.\n"
         "CRITICAL RULES:\n"
         "1. DO NOT grade signatures, names, dates, or plain text. ABSOLUTELY IGNORE anything at the very bottom of the page.\n"
-        "2. Group the math into distinct problems. For each problem, determine if the FINAL answer is correct.\n"
-        "3. Inside each problem, provide exactly ONE bounding box per horizontal line of math. Keep bounding boxes TIGHT.\n"
+        "2. Group the math into distinct problems. Evaluate every single horizontal line of math. Keep bounding boxes TIGHT.\n"
+        "3. Grade using ERROR CARRIED FORWARD (ECF). If a student makes a mistake, but their subsequent steps are logically valid based on that mistake, mark those subsequent steps as 'error_carried_forward'.\n"
         f"4. CRITICAL: Write all 'feedback' strictly in {language_name}.\n"
         "Return ONLY a raw JSON array of problem objects. Keys for each problem:\n"
-        "- 'problem_final_correct' (boolean: true ONLY if the final result for this specific problem is correct. False if they got the answer wrong).\n"
-        "- 'lines' (array of objects for each line of math in the problem. Keys: 'is_correct' (boolean), 'feedback' (string, max 8 words if wrong, empty if correct), 'box_2d' (array of 4 ints: [ymin, xmin, ymax, xmax] normalized to 1000))."
+        "- 'lines' (array of objects for each line. Keys:\n"
+        "   * 'status' (string, MUST BE EXACTLY ONE OF: 'correct', 'minor_error', 'conceptual_error', 'error_carried_forward'),\n"
+        "   * 'feedback' (string, max 10 words if error, empty if correct or error_carried_forward),\n"
+        "   * 'box_2d' (array of 4 ints: [ymin, xmin, ymax, xmax] normalized to 1000))."
     )
 
     payload = {
@@ -72,7 +72,6 @@ def get_api_annotations(img_chunk, api_key, language_name):
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
                 
-                # THE FIX: Isolate the JSON array to ignore any polite conversational text the AI adds
                 start_idx = result_text.find('[')
                 end_idx = result_text.rfind(']')
                 
@@ -190,16 +189,12 @@ def grade_api():
         grading_results = get_api_annotations(api_img, api_key, language_name)
 
         valid_results = []
-        total_problems = 0
-        correct_problems = 0
+        total_possible_points = 0
+        earned_points = 0
 
         for problem in grading_results:
             if not isinstance(problem, dict):
                 continue
-                
-            total_problems += 1
-            if problem.get("problem_final_correct", False):
-                correct_problems += 1
 
             for step in problem.get("lines", []):
                 box = step.get("box_2d", [0, 0, 0, 0])
@@ -214,11 +209,22 @@ def grade_api():
                 step["global_box"] = [left, top, right, bottom]
                 valid_results.append(step)
 
+                # NEW PROFESSOR SCORING LOGIC
+                status = step.get("status", "correct")
+                total_possible_points += 2
+                
+                if status == "correct" or status == "error_carried_forward":
+                    earned_points += 2
+                elif status == "minor_error":
+                    earned_points += 1
+                # conceptual_error adds 0 points
+
         stamp_x, stamp_y = 0, 0
         stamp_rect = [0, 0, 0, 0]
         stamp_img = None
-        if total_problems > 0:
-            raw_score = (correct_problems / total_problems) * 20
+        
+        if total_possible_points > 0:
+            raw_score = (earned_points / total_possible_points) * 20
             score_20 = round(raw_score * 2) / 2
             grade_text = f"{int(score_20)}/20" if score_20.is_integer() else f"{score_20}/20"
 
@@ -232,7 +238,7 @@ def grade_api():
 
         for step in valid_results:
             left, top, right, bottom = step["global_box"]
-            is_correct = step.get("is_correct", True)
+            status = step.get("status", "correct")
 
             box_cy = top + (bottom - top) // 2
             mark_x = width - 80 
@@ -247,60 +253,67 @@ def grade_api():
             draw_right = min(right, mark_x - 30)
             step["draw_right"] = draw_right 
 
-            if is_correct:
+            if status in ["correct", "error_carried_forward"]:
                 points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
                 draw.line(points, fill=COLOR_CORRECT, width=6, joint="curve")
             else:
-                draw_focus_box(draw, left, top, draw_right, bottom, COLOR_WRONG)
-                draw.line([(mark_x, mark_y - 15), (mark_x + 30, mark_y + 15)], fill=COLOR_WRONG, width=6)
-                draw.line([(mark_x + 30, mark_y - 15), (mark_x, mark_y + 15)], fill=COLOR_WRONG, width=6)
+                # Dynamic Error Color (Orange for minor, Red for conceptual)
+                error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
+                draw_focus_box(draw, left, top, draw_right, bottom, error_color)
+                draw.line([(mark_x, mark_y - 15), (mark_x + 30, mark_y + 15)], fill=error_color, width=6)
+                draw.line([(mark_x + 30, mark_y - 15), (mark_x, mark_y + 15)], fill=error_color, width=6)
 
         for step in valid_results:
-            is_correct = step.get("is_correct", True)
+            status = step.get("status", "correct")
             feedback = step.get("feedback", "")
+            
+            if status in ["correct", "error_carried_forward"] or not feedback:
+                continue
+
             left, top, right, bottom = step["global_box"]
             draw_right = step["draw_right"]
             box_cx = left + (draw_right - left) // 2
             box_cy = top + (bottom - top) // 2
 
-            if not is_correct and feedback:
-                char_width_estimate = int(width * 0.015) 
-                max_chars = max(15, int((width * 0.25) / char_width_estimate))
-                wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
-                
-                bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
-                text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-                text_w += 20 
-                text_h += 20
+            error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
 
-                start_search_x = draw_right + 10
-                start_search_y = top
-                
-                if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
-                    start_search_x = max(10, box_cx - (text_w // 2))
-                    start_search_y = bottom + 15
-                
-                temp_mistake_rect = [left, top, draw_right, bottom]
-                search_rects = occupied_rects + [temp_mistake_rect]
-                
-                note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, search_rects)
-                occupied_rects.append(note_rect) 
-                
-                note_cx = note_rect[0] + text_w // 2
-                note_cy = note_rect[1] + text_h // 2
-                
-                if note_rect[1] >= bottom:      
-                    line_start = (box_cx, bottom)
-                elif note_rect[3] <= top:       
-                    line_start = (box_cx, top)
-                elif note_rect[0] >= draw_right:     
-                    line_start = (draw_right, box_cy)
-                else:                           
-                    line_start = (left, box_cy)
+            char_width_estimate = int(width * 0.015) 
+            max_chars = max(15, int((width * 0.25) / char_width_estimate))
+            wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
+            
+            bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
+            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+            text_w += 20 
+            text_h += 20
 
-                draw.line([line_start, (note_cx, note_cy)], fill=COLOR_WRONG, width=3)
-                draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=COLOR_WRONG, width=2)
-                draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=COLOR_WRONG, font=font)
+            start_search_x = draw_right + 10
+            start_search_y = top
+            
+            if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
+                start_search_x = max(10, box_cx - (text_w // 2))
+                start_search_y = bottom + 15
+            
+            temp_mistake_rect = [left, top, draw_right, bottom]
+            search_rects = occupied_rects + [temp_mistake_rect]
+            
+            note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, search_rects)
+            occupied_rects.append(note_rect) 
+            
+            note_cx = note_rect[0] + text_w // 2
+            note_cy = note_rect[1] + text_h // 2
+            
+            if note_rect[1] >= bottom:      
+                line_start = (box_cx, bottom)
+            elif note_rect[3] <= top:       
+                line_start = (box_cx, top)
+            elif note_rect[0] >= draw_right:     
+                line_start = (draw_right, box_cy)
+            else:                           
+                line_start = (left, box_cy)
+
+            draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
+            draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
+            draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=error_color, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
