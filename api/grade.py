@@ -11,6 +11,19 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 app = Flask(__name__)
 
+# ==========================================
+# ROUTE 1: SERVE THE FRONTEND HTML
+# ==========================================
+@app.route('/')
+def serve_frontend():
+    # Go up one directory from the 'api' folder to find index.html
+    root_dir = os.path.dirname(os.path.dirname(__file__))
+    index_path = os.path.join(root_dir, 'index.html')
+    
+    if os.path.exists(index_path):
+        return send_file(index_path, mimetype='text/html')
+    return "Error: index.html not found in the repository root.", 404
+
 # --- DESIGN COLORS ---
 COLOR_CORRECT = (22, 163, 74, 255)       
 COLOR_WRONG = (220, 38, 38, 255)         
@@ -126,6 +139,9 @@ def draw_stamp(img_w, img_h, score_text):
     
     return stamp.rotate(-15, expand=True, resample=Image.BICUBIC)
 
+# ==========================================
+# ROUTE 2: API GRADING ENGINE
+# ==========================================
 @app.route('/api/grade', methods=['POST'])
 def grade_api():
     if 'image' not in request.files or 'api_key' not in request.form:
@@ -280,4 +296,3 @@ def grade_api():
 
     except Exception as e:
         return Response(f"Internal Server Error: {str(e)}", status=500)
-
