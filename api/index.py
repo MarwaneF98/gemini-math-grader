@@ -11,22 +11,35 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 app = Flask(__name__)
 
+# ==========================================
+# ROUTE 1: SERVE THE FRONTEND HTML
+# ==========================================
 @app.route('/')
 def serve_frontend():
     try:
+        # Navigate up to the root directory to find index.html
         root_dir = os.path.dirname(os.path.dirname(__file__))
         index_path = os.path.join(root_dir, 'index.html')
+        
+        # Read the file directly into memory and send it to the browser
         with open(index_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         return Response(html_content, mimetype='text/html')
     except Exception as e:
-        return f"CRITICAL ERROR: Could not load index.html. Details: {str(e)}", 500
+        return f"CRITICAL ERROR: Could not load index.html. Ensure it is in the root folder. Details: {str(e)}", 500
 
+# --- DESIGN COLORS ---
 COLOR_CORRECT = (22, 163, 74, 255)       
 COLOR_WRONG = (220, 38, 38, 255)         
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size):
+    local_font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Roboto-Bold.ttf")
+    if os.path.exists(local_font_path):
+        try:
+            return ImageFont.truetype(local_font_path, size=target_size)
+        except IOError:
+            pass
     return ImageFont.load_default()
 
 def get_api_annotations(img_chunk, api_key, language_name):
@@ -58,12 +71,20 @@ def get_api_annotations(img_chunk, api_key, language_name):
             response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
-                result_text = result_text.replace('```json', '').replace('```', '').strip()
-                try:
-                    data = json.loads(result_text)
-                    if isinstance(data, list):
-                        return data 
-                except json.JSONDecodeError:
+                
+                # THE FIX: Isolate the JSON array to ignore any polite conversational text the AI adds
+                start_idx = result_text.find('[')
+                end_idx = result_text.rfind(']')
+                
+                if start_idx != -1 and end_idx != -1:
+                    clean_json_str = result_text[start_idx:end_idx+1]
+                    try:
+                        data = json.loads(clean_json_str)
+                        if isinstance(data, list):
+                            return data 
+                    except json.JSONDecodeError:
+                        time.sleep(1)
+                else:
                     time.sleep(1)
             else:
                 time.sleep(1)
@@ -127,16 +148,19 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     
     score_label = "SCORE"
     if lang_code == "FR": score_label = "NOTE"
-
+    
     s_draw.text((stamp_size//2, stamp_size//4 + 10), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, stamp_size//2 + 15), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
     return stamp.rotate(-15, expand=True, resample=Image.BICUBIC)
 
+# ==========================================
+# ROUTE 2: API GRADING ENGINE
+# ==========================================
 @app.route('/api/grade', methods=['POST'])
 def grade_api():
     if 'image' not in request.files or 'api_key' not in request.form:
-        return Response("Missing data", status=400)
+        return Response("Missing image or api_key", status=400)
         
     file = request.files['image']
     api_key = request.form['api_key']
@@ -144,7 +168,7 @@ def grade_api():
     
     lang_map = {"EN": "English", "FR": "French"}
     language_name = lang_map.get(lang_code, "English")
-
+    
     if file.filename == '':
         return Response("No selected image", status=400)
 
@@ -243,7 +267,7 @@ def grade_api():
                 char_width_estimate = int(width * 0.015) 
                 max_chars = max(15, int((width * 0.25) / char_width_estimate))
                 wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
-
+                
                 bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
                 text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
                 text_w += 20 
