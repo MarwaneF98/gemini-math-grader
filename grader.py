@@ -56,12 +56,11 @@ def get_api_annotations(img_chunk):
         "You are an expert math grader. Analyze this math page.\n"
         "CRITICAL RULES:\n"
         "1. DO NOT grade signatures, names, dates, or plain text. ABSOLUTELY IGNORE anything at the very bottom of the page.\n"
-        "2. Provide EXACTLY ONE bounding box per horizontal line of math. Do not split a single equation into multiple boxes.\n"
-        "3. Keep bounding boxes TIGHT around the math.\n"
-        "Return ONLY a raw JSON array of objects. Keys: "
-        "'is_correct' (boolean), "
-        "'feedback' (string, max 8 words if wrong, empty if correct), "
-        "'box_2d' (array of 4 integers: [ymin, xmin, ymax, xmax] normalized to 1000)."
+        "2. Group the math into distinct problems. For each problem, determine if the FINAL answer is correct.\n"
+        "3. Inside each problem, provide exactly ONE bounding box per horizontal line of math. Keep bounding boxes TIGHT.\n"
+        "Return ONLY a raw JSON array of problem objects. Keys for each problem:\n"
+        "- 'problem_final_correct' (boolean: true ONLY if the final result for this specific problem is correct. False if they got the answer wrong).\n"
+        "- 'lines' (array of objects for each line of math in the problem. Keys: 'is_correct' (boolean), 'feedback' (string, max 8 words if wrong, empty if correct), 'box_2d' (array of 4 ints: [ymin, xmin, ymax, xmax] normalized to 1000))."
     )
 
     payload = {
@@ -168,8 +167,7 @@ def grade_and_draw_full_paper(image_path, output_path):
     font = load_font(int(height * 0.016), bold=True)
     
     occupied_rects = []
-    total_steps, correct_steps = 0, 0
-
+    
     print("Analyzing the entire page in one pass...")
     api_img = original_img.copy().convert("RGB")
     api_img.thumbnail((1536, 1536))
@@ -177,22 +175,33 @@ def grade_and_draw_full_paper(image_path, output_path):
     grading_results = get_api_annotations(api_img)
 
     valid_results = []
-    for step in grading_results:
-        box = step.get("box_2d", [0, 0, 0, 0])
-        top = int((box[0] / 1000.0) * height)
-        left = int((box[1] / 1000.0) * width)
-        bottom = int((box[2] / 1000.0) * height)
-        right = int((box[3] / 1000.0) * width)
-        
-        # Hard filter to protect the bottom signature area (bottom 15%)
-        if top > height * 0.85:
+    total_problems = 0
+    correct_problems = 0
+
+    # Parse the new strict grading JSON structure
+    for problem in grading_results:
+        if not isinstance(problem, dict):
             continue
             
-        step["global_box"] = [left, top, right, bottom]
-        valid_results.append(step)
-        if step.get("is_correct", True):
-            correct_steps += 1
-        total_steps += 1
+        total_problems += 1
+        # Strict grading: Problem is only correct if the final answer is right
+        if problem.get("problem_final_correct", False):
+            correct_problems += 1
+
+        # Flatten the lines so the drawing phases still work perfectly
+        for step in problem.get("lines", []):
+            box = step.get("box_2d", [0, 0, 0, 0])
+            top = int((box[0] / 1000.0) * height)
+            left = int((box[1] / 1000.0) * width)
+            bottom = int((box[2] / 1000.0) * height)
+            right = int((box[3] / 1000.0) * width)
+            
+            # Hard filter to protect the bottom signature area (bottom 15%)
+            if top > height * 0.85:
+                continue
+                
+            step["global_box"] = [left, top, right, bottom]
+            valid_results.append(step)
 
     # ==========================================
     # PHASE 1: Stamp Reservation
@@ -200,8 +209,8 @@ def grade_and_draw_full_paper(image_path, output_path):
     stamp_x, stamp_y = 0, 0
     stamp_rect = [0, 0, 0, 0]
     stamp_img = None
-    if total_steps > 0:
-        raw_score = (correct_steps / total_steps) * 20
+    if total_problems > 0:
+        raw_score = (correct_problems / total_problems) * 20
         score_20 = round(raw_score * 2) / 2
         grade_text = f"{int(score_20)}/20" if score_20.is_integer() else f"{score_20}/20"
 
