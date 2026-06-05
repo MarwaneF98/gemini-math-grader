@@ -27,6 +27,7 @@ def serve_frontend():
 
 # --- DESIGN COLORS ---
 COLOR_CORRECT = (22, 163, 74, 255)       # Green
+COLOR_ECF = (59, 130, 246, 255)          # Blue (Error Carried Forward)
 COLOR_MINOR = (245, 158, 11, 255)        # Amber/Orange for Minor Errors
 COLOR_WRONG = (220, 38, 38, 255)         # Red for Conceptual Errors
 COLOR_NOTE_BG = (255, 255, 255, 245)     
@@ -41,7 +42,7 @@ def load_font(target_size):
     return ImageFont.load_default()
 
 def get_api_annotations(img_chunk, api_key, language_name):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     buffer = io.BytesIO()
     img_chunk.save(buffer, format="JPEG")
@@ -91,7 +92,7 @@ def get_api_annotations(img_chunk, api_key, language_name):
             time.sleep(1)
     return []
 
-def is_overlapping(new_rect, occupied_rects, padding=10):
+def is_overlapping(new_rect, occupied_rects, padding=15):
     nr = [new_rect[0]-padding, new_rect[1]-padding, new_rect[2]+padding, new_rect[3]+padding]
     for occ in occupied_rects:
         if not (nr[2] < occ[0] or nr[0] > occ[2] or nr[3] < occ[1] or nr[1] > occ[3]):
@@ -109,7 +110,7 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             rect = [test_x, test_y, test_x + text_w, test_y + text_h]
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
-            if not is_overlapping(rect, occupied_rects, padding=10):
+            if not is_overlapping(rect, occupied_rects, padding=20): # Increased padding for notes
                 return rect
                 
     safe_x = min(max(10, cx), img_w - text_w - 10)
@@ -133,9 +134,13 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     
     temp_img = Image.new("RGBA", (1, 1))
     temp_draw = ImageDraw.Draw(temp_img)
-    bbox = temp_draw.textbbox((0, 0), score_text, font=stamp_font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
+    
+    try:
+        bbox = temp_draw.textbbox((0, 0), score_text, font=stamp_font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+    except AttributeError:
+        text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
 
     padding = int(img_w * 0.04)
     stamp_size = max(text_w, text_h) + (padding * 2)
@@ -147,7 +152,7 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     
     score_label = "SCORE"
     if lang_code == "FR": score_label = "NOTE"
-    
+
     s_draw.text((stamp_size//2, stamp_size//4 + 10), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, stamp_size//2 + 15), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
@@ -167,7 +172,7 @@ def grade_api():
     
     lang_map = {"EN": "English", "FR": "French"}
     language_name = lang_map.get(lang_code, "English")
-    
+
     if file.filename == '':
         return Response("No selected image", status=400)
 
@@ -184,9 +189,12 @@ def grade_api():
         occupied_rects = []
         
         api_img = original_img.copy().convert("RGB")
-        api_img.thumbnail((1536, 1536))
+        api_img.thumbnail((1024, 1024))
         
         grading_results = get_api_annotations(api_img, api_key, language_name)
+
+        if not grading_results:
+            return Response("Failed to analyze the math. Check API key or Vercel logs.", status=500)
 
         valid_results = []
         total_possible_points = 0
@@ -198,6 +206,8 @@ def grade_api():
 
             for step in problem.get("lines", []):
                 box = step.get("box_2d", [0, 0, 0, 0])
+                if not box or len(box) != 4: continue
+                
                 top = int((box[0] / 1000.0) * height)
                 left = int((box[1] / 1000.0) * width)
                 bottom = int((box[2] / 1000.0) * height)
@@ -209,7 +219,6 @@ def grade_api():
                 step["global_box"] = [left, top, right, bottom]
                 valid_results.append(step)
 
-                # NEW PROFESSOR SCORING LOGIC
                 status = step.get("status", "correct")
                 total_possible_points += 2
                 
@@ -217,7 +226,6 @@ def grade_api():
                     earned_points += 2
                 elif status == "minor_error":
                     earned_points += 1
-                # conceptual_error adds 0 points
 
         stamp_x, stamp_y = 0, 0
         stamp_rect = [0, 0, 0, 0]
@@ -252,12 +260,17 @@ def grade_api():
 
             draw_right = min(right, mark_x - 30)
             step["draw_right"] = draw_right 
+            
+            occupied_rects.append([left, top, draw_right, bottom])
 
-            if status in ["correct", "error_carried_forward"]:
+            # Draw Marks (Green for correct, Blue for ECF)
+            if status == "correct":
                 points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
                 draw.line(points, fill=COLOR_CORRECT, width=6, joint="curve")
+            elif status == "error_carried_forward":
+                points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
+                draw.line(points, fill=COLOR_ECF, width=6, joint="curve")
             else:
-                # Dynamic Error Color (Orange for minor, Red for conceptual)
                 error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
                 draw_focus_box(draw, left, top, draw_right, bottom, error_color)
                 draw.line([(mark_x, mark_y - 15), (mark_x + 30, mark_y + 15)], fill=error_color, width=6)
@@ -266,54 +279,53 @@ def grade_api():
         for step in valid_results:
             status = step.get("status", "correct")
             feedback = step.get("feedback", "")
+            if not feedback: continue
             
-            if status in ["correct", "error_carried_forward"] or not feedback:
-                continue
-
             left, top, right, bottom = step["global_box"]
             draw_right = step["draw_right"]
             box_cx = left + (draw_right - left) // 2
             box_cy = top + (bottom - top) // 2
 
-            error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
+            if status in ["minor_error", "conceptual_error"]:
+                error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
 
-            char_width_estimate = int(width * 0.015) 
-            max_chars = max(15, int((width * 0.25) / char_width_estimate))
-            wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
-            
-            bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
-            text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-            text_w += 20 
-            text_h += 20
+                char_width_estimate = int(width * 0.015) 
+                max_chars = max(15, int((width * 0.25) / char_width_estimate))
+                wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
 
-            start_search_x = draw_right + 10
-            start_search_y = top
-            
-            if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
-                start_search_x = max(10, box_cx - (text_w // 2))
-                start_search_y = bottom + 15
-            
-            temp_mistake_rect = [left, top, draw_right, bottom]
-            search_rects = occupied_rects + [temp_mistake_rect]
-            
-            note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, search_rects)
-            occupied_rects.append(note_rect) 
-            
-            note_cx = note_rect[0] + text_w // 2
-            note_cy = note_rect[1] + text_h // 2
-            
-            if note_rect[1] >= bottom:      
-                line_start = (box_cx, bottom)
-            elif note_rect[3] <= top:       
-                line_start = (box_cx, top)
-            elif note_rect[0] >= draw_right:     
-                line_start = (draw_right, box_cy)
-            else:                           
-                line_start = (left, box_cy)
+                try:
+                    bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
+                    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                except AttributeError:
+                    text_w, text_h = draw.textsize(wrapped_feedback, font=font)
+                    
+                text_w += 20 
+                text_h += 20
 
-            draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
-            draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
-            draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=error_color, font=font)
+                # Determine start search position, pushing away from the bottom
+                start_search_x = draw_right + 10
+                start_search_y = top
+                
+                if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
+                    start_search_x = max(10, box_cx - (text_w // 2))
+                    start_search_y = top - text_h - 20 # Try to place ABOVE the box instead of below
+                
+                note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects)
+                occupied_rects.append(note_rect) 
+                
+                note_cx = note_rect[0] + text_w // 2
+                note_cy = note_rect[1] + text_h // 2
+                
+                # CRITICAL UI FIX: Connector lines now exclusively draw from the Left or Right sides of the box.
+                # They will no longer shoot out from the bottom edge, keeping the space below clear.
+                if note_cx > box_cx:      
+                    line_start = (draw_right, box_cy)
+                else:                           
+                    line_start = (left, box_cy)
+
+                draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
+                draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
+                draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=error_color, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
@@ -327,4 +339,5 @@ def grade_api():
         return send_file(output_io, mimetype="image/jpeg")
 
     except Exception as e:
+        print(f"Server Error in grade_api: {str(e)}", flush=True)
         return Response(f"Internal Server Error: {str(e)}", status=500)
