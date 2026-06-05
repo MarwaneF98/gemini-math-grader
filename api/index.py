@@ -42,7 +42,8 @@ def load_font(target_size):
     return ImageFont.load_default()
 
 def get_api_annotations(img_chunk, api_key, language_name):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # CRITICAL FIX: Restored the correct 3.5-flash model
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
     
     buffer = io.BytesIO()
     img_chunk.save(buffer, format="JPEG")
@@ -69,10 +70,14 @@ def get_api_annotations(img_chunk, api_key, language_name):
 
     for attempt in range(3): 
         try:
-            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+            print(f"Attempt {attempt + 1}: Sending to Gemini 3.5 Flash...", flush=True)
+            # CRITICAL FIX: Restored timeout to 50 seconds to prevent Vercel from killing the task
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=50)
+            
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
                 
+                # Isolate the JSON array to ignore polite conversational text
                 start_idx = result_text.find('[')
                 end_idx = result_text.rfind(']')
                 
@@ -81,15 +86,21 @@ def get_api_annotations(img_chunk, api_key, language_name):
                     try:
                         data = json.loads(clean_json_str)
                         if isinstance(data, list):
+                            print("Success! JSON parsed correctly.", flush=True)
                             return data 
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as e:
+                        print(f"JSON Parse Error: {e}", flush=True)
                         time.sleep(1)
                 else:
+                    print("Error: No JSON array brackets found in AI response.", flush=True)
                     time.sleep(1)
             else:
+                print(f"API Error {response.status_code}: {response.text}", flush=True)
                 time.sleep(1)
-        except Exception:
+        except Exception as e:
+            print(f"Connection Exception: {str(e)}", flush=True)
             time.sleep(1)
+            
     return []
 
 def is_overlapping(new_rect, occupied_rects, padding=15):
@@ -110,7 +121,7 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             rect = [test_x, test_y, test_x + text_w, test_y + text_h]
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
-            if not is_overlapping(rect, occupied_rects, padding=20): # Increased padding for notes
+            if not is_overlapping(rect, occupied_rects, padding=20): 
                 return rect
                 
     safe_x = min(max(10, cx), img_w - text_w - 10)
@@ -317,7 +328,6 @@ def grade_api():
                 note_cy = note_rect[1] + text_h // 2
                 
                 # CRITICAL UI FIX: Connector lines now exclusively draw from the Left or Right sides of the box.
-                # They will no longer shoot out from the bottom edge, keeping the space below clear.
                 if note_cx > box_cx:      
                     line_start = (draw_right, box_cy)
                 else:                           
