@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/grade", "destination": "/api/index" }
-  ]
-}
