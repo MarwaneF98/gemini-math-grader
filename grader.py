@@ -25,10 +25,11 @@ MODEL = "gemini-3.5-flash"
 URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
 
 # --- DESIGN COLORS ---
-COLOR_CORRECT = (22, 163, 74, 255)       # Emerald Green
-COLOR_MINOR = (245, 158, 11, 255)        # Amber/Orange for Minor Errors
-COLOR_WRONG = (220, 38, 38, 255)         # Crimson Red for Conceptual Errors
-COLOR_NOTE_BG = (255, 255, 255, 245)     # 96% Opaque White for clean overlapping
+COLOR_CORRECT = (22, 163, 74, 255)       # Green (Flawless)
+COLOR_ECF = (59, 130, 246, 255)          # Blue (Error Carried Forward)
+COLOR_MINOR = (147, 51, 234, 255)        # Purple (Minor Errors)
+COLOR_WRONG = (220, 38, 38, 255)         # Red (Conceptual Errors)
+COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size, bold=False):
     # Standard font paths for Android, Windows, macOS, and Linux
@@ -73,11 +74,12 @@ def get_api_annotations(img_chunk):
 
     for attempt in range(3): 
         try:
-            response = requests.post(URL, json=payload, headers={"Content-Type": "application/json"}, timeout=30)
+            print(f"Attempt {attempt + 1}: Sending to Gemini 3.5 Flash...", flush=True)
+            response = requests.post(URL, json=payload, headers={"Content-Type": "application/json"}, timeout=50)
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
                 
-                # THE FIX: Isolate the JSON array to ignore any polite conversational text the AI adds
+                # Isolate the JSON array to ignore any polite conversational text the AI adds
                 start_idx = result_text.find('[')
                 end_idx = result_text.rfind(']')
                 
@@ -86,6 +88,7 @@ def get_api_annotations(img_chunk):
                     try:
                         data = json.loads(clean_json_str)
                         if isinstance(data, list):
+                            print("Success! JSON parsed correctly.", flush=True)
                             return data 
                     except json.JSONDecodeError:
                         time.sleep(2)
@@ -97,7 +100,7 @@ def get_api_annotations(img_chunk):
             time.sleep(2)
     return []
 
-def is_overlapping(new_rect, occupied_rects, padding=10):
+def is_overlapping(new_rect, occupied_rects, padding=15):
     nr = [new_rect[0]-padding, new_rect[1]-padding, new_rect[2]+padding, new_rect[3]+padding]
     for occ in occupied_rects:
         if not (nr[2] < occ[0] or nr[0] > occ[2] or nr[3] < occ[1] or nr[1] > occ[3]):
@@ -117,7 +120,7 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
             
-            if not is_overlapping(rect, occupied_rects, padding=10):
+            if not is_overlapping(rect, occupied_rects, padding=20):
                 return rect
                 
     safe_x = min(max(10, cx), img_w - text_w - 10)
@@ -258,9 +261,13 @@ def grade_and_draw_full_paper(image_path, output_path):
         draw_right = min(right, mark_x - 30)
         step["draw_right"] = draw_right 
 
-        if status in ["correct", "error_carried_forward"]:
+        # Draw Marks (Green for correct, Blue for ECF)
+        if status == "correct":
             points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
             draw.line(points, fill=COLOR_CORRECT, width=6, joint="curve")
+        elif status == "error_carried_forward":
+            points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
+            draw.line(points, fill=COLOR_ECF, width=6, joint="curve")
         else:
             # Dynamic Error Color
             error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
@@ -298,12 +305,13 @@ def grade_and_draw_full_paper(image_path, output_path):
         text_w += 20 
         text_h += 20
 
+        # Determine start search position, pushing away from the bottom
         start_search_x = draw_right + 10
         start_search_y = top
         
         if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
             start_search_x = max(10, box_cx - (text_w // 2))
-            start_search_y = bottom + 15
+            start_search_y = top - text_h - 20 # Try to place ABOVE the box instead of below
         
         temp_mistake_rect = [left, top, draw_right, bottom]
         search_rects = occupied_rects + [temp_mistake_rect]
@@ -314,11 +322,8 @@ def grade_and_draw_full_paper(image_path, output_path):
         note_cx = note_rect[0] + text_w // 2
         note_cy = note_rect[1] + text_h // 2
         
-        if note_rect[1] >= bottom:      
-            line_start = (box_cx, bottom)
-        elif note_rect[3] <= top:       
-            line_start = (box_cx, top)
-        elif note_rect[0] >= draw_right:     
+        # CRITICAL UI FIX: Connector lines now exclusively draw from the Left or Right sides of the box.
+        if note_cx > box_cx:      
             line_start = (draw_right, box_cy)
         else:                           
             line_start = (left, box_cy)
