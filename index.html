@@ -14,14 +14,12 @@
             --accent-color: #2563eb; 
         }
 
-        /* 1. ABSOLUTE LOCK: Kill all browser highlight and touch actions */
         * {
             -webkit-tap-highlight-color: transparent; 
             box-sizing: border-box;
             touch-action: none; 
         }
 
-        /* 2. PREVENT SCROLLING */
         html, body {
             background-color: var(--bg-color);
             color: var(--text-primary);
@@ -35,6 +33,32 @@
             position: fixed; 
             display: flex;
             flex-direction: column;
+            transition: direction 0.3s ease;
+        }
+
+        /* Language Switcher Styling */
+        .lang-switch-wrapper {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        /* Adjust position for Arabic RTL */
+        [dir="rtl"] .lang-switch-wrapper {
+            right: auto;
+            left: 20px;
+        }
+
+        select#lang-select {
+            background-color: var(--container-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
         }
 
         main {
@@ -120,7 +144,6 @@
             cursor: not-allowed;
         }
 
-        /* Secondary Outline Button Style */
         button.secondary-btn {
             background-color: transparent;
             border: 1px solid var(--accent-color);
@@ -140,7 +163,6 @@
             flex-shrink: 0;
         }
 
-        /* 3. DYNAMIC SHRINKING */
         #result-section {
             display: none;
             flex-direction: column;
@@ -183,7 +205,7 @@
         #clear-key-link {
             color: var(--accent-color);
             text-decoration: none;
-            margin-left: 8px;
+            margin: 0 8px;
             cursor: pointer;
         }
 
@@ -195,22 +217,30 @@
 </head>
 <body>
 
+    <div class="lang-switch-wrapper">
+        <select id="lang-select">
+            <option value="EN">English</option>
+            <option value="FR">Français</option>
+            <option value="AR">العربية</option>
+        </select>
+    </div>
+
     <main>
         <div id="auth-screen" class="container">
-            <h1>Access Grader</h1>
-            <p class="subtitle">Please provide your Gemini API key to access the tool. It will be saved securely on your device.</p>
+            <h1 id="t-auth-title">Access Grader</h1>
+            <p class="subtitle" id="t-auth-sub">Please provide your Gemini API key to access the tool. It will be saved securely on your device.</p>
             
             <form id="auth-form">
                 <div class="form-group">
                     <input type="password" id="api-key-input" required placeholder="Enter Gemini API Key">
                 </div>
-                <button type="submit">Enter</button>
+                <button type="submit" id="t-auth-btn">Enter</button>
             </form>
         </div>
 
         <div id="grader-screen" class="container">
-            <h1>AI Math Grader</h1>
-            <p class="subtitle">Upload a photo of handwritten math to grade it.</p>
+            <h1 id="t-grader-title">AI Math Grader</h1>
+            <p class="subtitle" id="t-grader-sub">Upload a photo of handwritten math to grade it.</p>
             
             <form id="grader-form">
                 <div class="form-group">
@@ -224,7 +254,7 @@
             <div id="result-section">
                 <img id="preview" alt="Graded Paper Preview">
                 <a id="download-link" download="graded_paper.jpg">
-                    <button type="button">Download Corrected Paper</button>
+                    <button type="button" id="t-download-btn">Download Corrected Paper</button>
                 </a>
                 <button type="button" id="new-paper-btn" class="secondary-btn">Grade Another Paper</button>
             </div>
@@ -236,18 +266,91 @@
     </footer>
 
     <script>
-        // 4. JAVASCRIPT LOCK: Aggressively block native mobile touch gestures
-        document.addEventListener('touchmove', function(event) {
-            event.preventDefault();
-        }, { passive: false });
+        document.addEventListener('touchmove', function(event) { event.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', function(event) { event.preventDefault(); });
 
-        document.addEventListener('gesturestart', function(event) {
-            event.preventDefault();
+        // --- TRANSLATION DICTIONARY ---
+        const uiText = {
+            EN: {
+                authTitle: "Access Grader",
+                authSub: "Please provide your Gemini API key to access the tool. It will be saved securely on your device.",
+                keyPlace: "Enter Gemini API Key",
+                authBtn: "Enter",
+                graderTitle: "AI Math Grader",
+                graderSub: "Upload a photo of handwritten math to grade it.",
+                gradeBtn: "Grade Paper",
+                downloadBtn: "Download Corrected Paper",
+                newPaperBtn: "Grade Another Paper",
+                changeKey: "Change API Key",
+                statusProcess: "Processing...",
+                statusAnalyze: "Analyzing and grading paper...",
+                statusComplete: "Grading complete!"
+            },
+            FR: {
+                authTitle: "Accès au Correcteur",
+                authSub: "Veuillez fournir votre clé API Gemini. Elle sera enregistrée en toute sécurité sur votre appareil.",
+                keyPlace: "Entrez la clé API Gemini",
+                authBtn: "Entrer",
+                graderTitle: "Correcteur Mathématique IA",
+                graderSub: "Téléchargez une photo de mathématiques manuscrites pour la corriger.",
+                gradeBtn: "Corriger la Copie",
+                downloadBtn: "Télécharger la Copie Corrigée",
+                newPaperBtn: "Corriger une Autre Copie",
+                changeKey: "Changer la clé API",
+                statusProcess: "Traitement en cours...",
+                statusAnalyze: "Analyse et correction en cours...",
+                statusComplete: "Correction terminée !"
+            },
+            AR: {
+                authTitle: "تسجيل الدخول للمصحح",
+                authSub: "يرجى تقديم مفتاح Gemini API الخاص بك للوصول إلى الأداة. سيتم حفظه بأمان على جهازك.",
+                keyPlace: "أدخل مفتاح Gemini API",
+                authBtn: "دخول",
+                graderTitle: "مصحح الرياضيات بالذكاء الاصطناعي",
+                graderSub: "قم بتحميل صورة للرياضيات المكتوبة بخط اليد لتصحيحها.",
+                gradeBtn: "تصحيح الورقة",
+                downloadBtn: "تحميل الورقة المصححة",
+                newPaperBtn: "تصحيح ورقة أخرى",
+                changeKey: "تغيير مفتاح API",
+                statusProcess: "جاري المعالجة...",
+                statusAnalyze: "جاري تحليل وتصحيح الورقة...",
+                statusComplete: "اكتمل التصحيح!"
+            }
+        };
+
+        let currentLang = "EN";
+        const langSelect = document.getElementById('lang-select');
+
+        function updateLanguage(lang) {
+            currentLang = lang;
+            const t = uiText[lang];
+            
+            document.documentElement.lang = lang.toLowerCase();
+            document.documentElement.dir = lang === "AR" ? "rtl" : "ltr";
+
+            document.getElementById('t-auth-title').textContent = t.authTitle;
+            document.getElementById('t-auth-sub').textContent = t.authSub;
+            document.getElementById('api-key-input').placeholder = t.keyPlace;
+            document.getElementById('t-auth-btn').textContent = t.authBtn;
+            
+            document.getElementById('t-grader-title').textContent = t.graderTitle;
+            document.getElementById('t-grader-sub').textContent = t.graderSub;
+            
+            // Only update gradeBtn if it's not currently showing "Processing..."
+            const sBtn = document.getElementById('submit-btn');
+            if(sBtn.disabled === false) sBtn.textContent = t.gradeBtn;
+            
+            document.getElementById('t-download-btn').textContent = t.downloadBtn;
+            document.getElementById('new-paper-btn').textContent = t.newPaperBtn;
+            document.getElementById('clear-key-link').textContent = t.changeKey;
+        }
+
+        langSelect.addEventListener('change', (e) => {
+            updateLanguage(e.target.value);
         });
 
+        // Initialize Core Logic
         let sessionApiKey = "";
-
-        // CHECK MEMORY: If key exists in local storage, skip the auth screen
         const savedKey = localStorage.getItem('gemini_api_key');
         if (savedKey) {
             sessionApiKey = savedKey;
@@ -255,33 +358,26 @@
             document.getElementById('grader-screen').style.display = 'flex';
         }
 
-        // HANDLE AUTH LOGIN
         document.getElementById('auth-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const inputKey = document.getElementById('api-key-input').value.trim();
-            
             if (inputKey) {
                 sessionApiKey = inputKey;
-                localStorage.setItem('gemini_api_key', inputKey); // Save to browser memory
-                
+                localStorage.setItem('gemini_api_key', inputKey);
                 document.getElementById('api-key-input').blur();
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('grader-screen').style.display = 'flex';
             }
         });
 
-        // HANDLE LOGOUT / CHANGE KEY
         document.getElementById('clear-key-link').addEventListener('click', (e) => {
             e.preventDefault();
-            localStorage.removeItem('gemini_api_key'); // Delete from memory
+            localStorage.removeItem('gemini_api_key'); 
             sessionApiKey = "";
             document.getElementById('api-key-input').value = "";
-            
-            // Reset UI back to auth screen
             document.getElementById('grader-screen').style.display = 'none';
             document.getElementById('auth-screen').style.display = 'flex';
             
-            // Also reset the grader form just in case
             document.getElementById('paper-image').value = '';
             document.getElementById('result-section').style.display = 'none';
             document.querySelector('#grader-screen p.subtitle').style.display = 'block';
@@ -289,7 +385,6 @@
             document.getElementById('status').textContent = '';
         });
 
-        // HANDLE NEW PAPER RESET
         document.getElementById('new-paper-btn').addEventListener('click', () => {
             document.getElementById('paper-image').value = '';
             document.getElementById('result-section').style.display = 'none';
@@ -298,7 +393,6 @@
             document.getElementById('status').textContent = '';
         });
 
-        // HANDLE GRADING SUBMISSION
         document.getElementById('grader-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -313,10 +407,11 @@
             const formData = new FormData();
             formData.append('image', file);
             formData.append('api_key', sessionApiKey);
+            formData.append('language', currentLang); // SEND THE CHOSEN LANGUAGE TO THE BACKEND
 
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Processing...';
-            statusText.textContent = 'Analyzing and grading paper...';
+            submitBtn.textContent = uiText[currentLang].statusProcess;
+            statusText.textContent = uiText[currentLang].statusAnalyze;
             
             document.querySelector('#grader-screen p.subtitle').style.display = 'none';
             document.getElementById('grader-form').style.display = 'none';
@@ -341,7 +436,7 @@
                 document.getElementById('preview').style.pointerEvents = 'auto';
                 
                 resultSection.style.display = 'flex';
-                statusText.textContent = 'Grading complete!';
+                statusText.textContent = uiText[currentLang].statusComplete;
                 
             } catch (error) {
                 console.error(error);
@@ -349,7 +444,7 @@
                 document.getElementById('grader-form').style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Grade Paper';
+                submitBtn.textContent = uiText[currentLang].gradeBtn;
             }
         });
     </script>
