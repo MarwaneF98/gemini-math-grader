@@ -6,9 +6,7 @@
     }
   ],
   "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.py"
-    }
+    { "src": "/profile.jpg", "dest": "/profile.jpg" },
+    { "src": "/(.*)", "dest": "/api/index.py" }
   ]
 }
