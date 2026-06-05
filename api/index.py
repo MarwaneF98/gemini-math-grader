@@ -6,8 +6,11 @@ import math
 import base64
 import requests
 import textwrap
+import urllib.request
 from flask import Flask, request, send_file, Response
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 app = Flask(__name__)
 
@@ -17,16 +20,13 @@ app = Flask(__name__)
 @app.route('/')
 def serve_frontend():
     try:
-        # Navigate up to the root directory to find index.html
         root_dir = os.path.dirname(os.path.dirname(__file__))
         index_path = os.path.join(root_dir, 'index.html')
-        
-        # Read the file directly into memory and send it to the browser
         with open(index_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         return Response(html_content, mimetype='text/html')
     except Exception as e:
-        return f"CRITICAL ERROR: Could not load index.html. Ensure it is in the root folder. Details: {str(e)}", 500
+        return f"CRITICAL ERROR: Could not load index.html. Details: {str(e)}", 500
 
 # --- DESIGN COLORS ---
 COLOR_CORRECT = (22, 163, 74, 255)       
@@ -34,15 +34,25 @@ COLOR_WRONG = (220, 38, 38, 255)
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size):
-    local_font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Roboto-Bold.ttf")
-    if os.path.exists(local_font_path):
+    # Vercel gives us a temporary /tmp folder to use while the server runs.
+    font_path = "/tmp/NotoSansArabic-Bold.ttf"
+    
+    # Direct link to Google's raw font file (Supports EN, FR, AR)
+    font_url = "https://raw.githubusercontent.com/googlefonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Bold.ttf"
+    
+    # Download the font only if it hasn't been downloaded yet
+    if not os.path.exists(font_path):
         try:
-            return ImageFont.truetype(local_font_path, size=target_size)
-        except IOError:
-            pass
-    return ImageFont.load_default()
+            urllib.request.urlretrieve(font_url, font_path)
+        except Exception:
+            return ImageFont.load_default()
+            
+    try:
+        return ImageFont.truetype(font_path, size=target_size)
+    except IOError:
+        return ImageFont.load_default()
 
-def get_api_annotations(img_chunk, api_key):
+def get_api_annotations(img_chunk, api_key, language_name):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
     
     buffer = io.BytesIO()
@@ -55,6 +65,7 @@ def get_api_annotations(img_chunk, api_key):
         "1. DO NOT grade signatures, names, dates, or plain text. ABSOLUTELY IGNORE anything at the very bottom of the page.\n"
         "2. Group the math into distinct problems. For each problem, determine if the FINAL answer is correct.\n"
         "3. Inside each problem, provide exactly ONE bounding box per horizontal line of math. Keep bounding boxes TIGHT.\n"
+        f"4. CRITICAL: Write all 'feedback' strictly in {language_name}.\n"
         "Return ONLY a raw JSON array of problem objects. Keys for each problem:\n"
         "- 'problem_final_correct' (boolean: true ONLY if the final result for this specific problem is correct. False if they got the answer wrong).\n"
         "- 'lines' (array of objects for each line of math in the problem. Keys: 'is_correct' (boolean), 'feedback' (string, max 8 words if wrong, empty if correct), 'box_2d' (array of 4 ints: [ymin, xmin, ymax, xmax] normalized to 1000))."
@@ -118,7 +129,7 @@ def draw_focus_box(draw, left, top, right, bottom, color):
     draw.line([(left, bottom-length), (left, bottom), (left+length, bottom)], fill=color, width=thick)
     draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick)
 
-def draw_stamp(img_w, img_h, score_text):
+def draw_stamp(img_w, img_h, score_text, lang_code):
     base_font_size = int(img_h * 0.04)
     stamp_font = load_font(base_font_size)
     label_font = load_font(int(base_font_size * 0.4))
@@ -136,7 +147,14 @@ def draw_stamp(img_w, img_h, score_text):
     
     s_draw.ellipse([5, 5, stamp_size-5, stamp_size-5], fill=(255, 255, 255, 255), outline=COLOR_WRONG, width=8)
     s_draw.ellipse([18, 18, stamp_size-18, stamp_size-18], outline=COLOR_WRONG, width=3)
-    s_draw.text((stamp_size//2, stamp_size//4 + 10), "SCORE", fill=COLOR_WRONG, font=label_font, anchor="mm")
+    
+    score_label = "SCORE"
+    if lang_code == "FR": score_label = "NOTE"
+    if lang_code == "AR": 
+        reshaped = arabic_reshaper.reshape("النتيجة")
+        score_label = get_display(reshaped)
+
+    s_draw.text((stamp_size//2, stamp_size//4 + 10), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, stamp_size//2 + 15), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
     return stamp.rotate(-15, expand=True, resample=Image.BICUBIC)
@@ -147,11 +165,15 @@ def draw_stamp(img_w, img_h, score_text):
 @app.route('/api/grade', methods=['POST'])
 def grade_api():
     if 'image' not in request.files or 'api_key' not in request.form:
-        return Response("Missing image or api_key", status=400)
+        return Response("Missing data", status=400)
         
     file = request.files['image']
     api_key = request.form['api_key']
+    lang_code = request.form.get('language', 'EN')
     
+    lang_map = {"EN": "English", "FR": "French", "AR": "Arabic"}
+    language_name = lang_map.get(lang_code, "English")
+
     if file.filename == '':
         return Response("No selected image", status=400)
 
@@ -170,7 +192,7 @@ def grade_api():
         api_img = original_img.copy().convert("RGB")
         api_img.thumbnail((1536, 1536))
         
-        grading_results = get_api_annotations(api_img, api_key)
+        grading_results = get_api_annotations(api_img, api_key, language_name)
 
         valid_results = []
         total_problems = 0
@@ -205,7 +227,7 @@ def grade_api():
             score_20 = round(raw_score * 2) / 2
             grade_text = f"{int(score_20)}/20" if score_20.is_integer() else f"{score_20}/20"
 
-            stamp_img = draw_stamp(width, height, grade_text)
+            stamp_img = draw_stamp(width, height, grade_text, lang_code)
             s_w, s_h = stamp_img.size
 
             stamp_x = width - s_w - int(width * 0.03)
@@ -251,7 +273,14 @@ def grade_api():
                 max_chars = max(15, int((width * 0.25) / char_width_estimate))
                 wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
                 
-                bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
+                # Correctly reshape Arabic text for the PIL engine
+                if lang_code == "AR":
+                    reshaped_text = arabic_reshaper.reshape(wrapped_feedback)
+                    display_feedback = get_display(reshaped_text)
+                else:
+                    display_feedback = wrapped_feedback
+
+                bbox = draw.textbbox((0, 0), display_feedback, font=font)
                 text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
                 text_w += 20 
                 text_h += 20
@@ -283,7 +312,7 @@ def grade_api():
 
                 draw.line([line_start, (note_cx, note_cy)], fill=COLOR_WRONG, width=3)
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=COLOR_WRONG, width=2)
-                draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=COLOR_WRONG, font=font)
+                draw.text((note_rect[0] + 10, note_rect[1] + 10), display_feedback, fill=COLOR_WRONG, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
@@ -298,4 +327,3 @@ def grade_api():
 
     except Exception as e:
         return Response(f"Internal Server Error: {str(e)}", status=500)
-
