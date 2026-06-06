@@ -32,7 +32,7 @@ COLOR_WRONG = (220, 38, 38, 255)         # Red (Conceptual Errors)
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size, bold=False):
-    # 1. First, try to load a local font file (just like the web app does)
+    # 1. First, try to load a local font file
     local_font_path = os.path.join(os.path.dirname(__file__), "Roboto-Bold.ttf")
     if os.path.exists(local_font_path):
         try:
@@ -87,7 +87,7 @@ def get_api_annotations(img_chunk):
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
                 
-                # Isolate the JSON array to ignore any polite conversational text the AI adds
+                # Isolate the JSON array
                 start_idx = result_text.find('[')
                 end_idx = result_text.rfind(']')
                 
@@ -115,7 +115,7 @@ def is_overlapping(new_rect, occupied_rects, padding=15):
             return True
     return False
 
-def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
+def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects, padding=30):
     step = 25 
     for radius in range(0, max(img_w, img_h), step):
         for angle in range(0, 360, 30):
@@ -128,18 +128,17 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
             
-            # CRITICAL FIX: Increased padding to 30 to physically force the box away from equations
-            if not is_overlapping(rect, occupied_rects, padding=30):
+            if not is_overlapping(rect, occupied_rects, padding=padding):
                 return rect
                 
     safe_x = min(max(10, cx), img_w - text_w - 10)
     safe_y = min(max(60, cy), img_h - text_h - 10)
     return [safe_x, safe_y, safe_x + text_w, safe_y + text_h]
 
-def draw_focus_box(draw, left, top, right, bottom, color):
+def draw_focus_box(draw, left, top, right, bottom, color, line_w=2):
     length = min(30, (right - left) // 4)
-    thick = 5
-    thin = 2
+    thick = max(3, line_w * 2)
+    thin = max(1, line_w)
     draw.rectangle([left, top, right, bottom], outline=color, width=thin)
     draw.line([(left, top+length), (left, top), (left+length, top)], fill=color, width=thick)
     draw.line([(right-length, top), (right, top), (right, top+length)], fill=color, width=thick)
@@ -147,9 +146,10 @@ def draw_focus_box(draw, left, top, right, bottom, color):
     draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick)
 
 def draw_stamp(img_w, img_h, score_text):
-    base_font_size = int(img_h * 0.04)
+    # Scale font based on the smallest dimension to prevent massive stamps on tall photos
+    base_font_size = int(min(img_w, img_h) * 0.05)
     stamp_font = load_font(base_font_size, bold=True)
-    label_font = load_font(int(base_font_size * 0.4), bold=True)
+    label_font = load_font(int(base_font_size * 0.45), bold=True)
     
     temp_img = Image.new("RGBA", (1, 1))
     temp_draw = ImageDraw.Draw(temp_img)
@@ -160,15 +160,22 @@ def draw_stamp(img_w, img_h, score_text):
     except AttributeError:
         text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
 
-    padding = int(img_w * 0.04)
-    stamp_size = max(text_w, text_h) + (padding * 2)
+    # DYNAMIC CIRCLE SCALING: Force the circle to be 1.6x larger than the text itself
+    stamp_size = int(max(text_w, text_h) * 1.6)
     stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
     s_draw = ImageDraw.Draw(stamp)
     
-    s_draw.ellipse([5, 5, stamp_size-5, stamp_size-5], fill=(255, 255, 255, 255), outline=COLOR_WRONG, width=8)
-    s_draw.ellipse([18, 18, stamp_size-18, stamp_size-18], outline=COLOR_WRONG, width=3)
-    s_draw.text((stamp_size//2, stamp_size//4 + 10), "SCORE", fill=COLOR_WRONG, font=label_font, anchor="mm")
-    s_draw.text((stamp_size//2, stamp_size//2 + 15), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
+    out_m = int(stamp_size * 0.02)
+    in_m = int(stamp_size * 0.09)
+    out_w = max(2, int(stamp_size * 0.025))
+    in_w = max(1, int(stamp_size * 0.01))
+
+    s_draw.ellipse([out_m, out_m, stamp_size-out_m, stamp_size-out_m], fill=(255, 255, 255, 255), outline=COLOR_WRONG, width=out_w)
+    s_draw.ellipse([in_m, in_m, stamp_size-in_m, stamp_size-in_m], outline=COLOR_WRONG, width=in_w)
+    
+    # DYNAMIC TEXT PLACEMENT (Perfectly centered proportionally)
+    s_draw.text((stamp_size//2, int(stamp_size * 0.32)), "SCORE", fill=COLOR_WRONG, font=label_font, anchor="mm")
+    s_draw.text((stamp_size//2, int(stamp_size * 0.65)), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
     return stamp.rotate(-15, expand=True, resample=Image.BICUBIC)
 
@@ -184,7 +191,12 @@ def grade_and_draw_full_paper(image_path, output_path):
     
     overlay = Image.new("RGBA", original_img.size, (255, 255, 255, 0))
     draw = ImageDraw.Draw(overlay)
-    font = load_font(int(height * 0.016), bold=True)
+    
+    # DYNAMIC GLOBAL SCALING FACTORS
+    font_size = int(height * 0.016)
+    font = load_font(font_size, bold=True)
+    line_w = max(2, int(height * 0.003))
+    mark_scale = max(2, int(height * 0.006))
     
     occupied_rects = []
     
@@ -220,7 +232,7 @@ def grade_and_draw_full_paper(image_path, output_path):
             step["global_box"] = [left, top, right, bottom]
             valid_results.append(step)
 
-            # NEW PROFESSOR SCORING LOGIC
+            # PROFESSOR SCORING LOGIC
             status = step.get("status", "correct")
             total_possible_points += 2
             
@@ -257,34 +269,34 @@ def grade_and_draw_full_paper(image_path, output_path):
         status = step.get("status", "correct")
 
         box_cy = top + (bottom - top) // 2
-        mark_x = width - 80 
+        
+        # DYNAMIC MARGIN MARK POSITIONING
+        mark_x = width - int(width * 0.06) 
         mark_y = box_cy
 
-        if stamp_img and (stamp_rect[1] - 30 <= mark_y <= stamp_rect[3] + 30):
-            mark_x = stamp_rect[0] - 50
+        if stamp_img and (stamp_rect[1] - (mark_scale*5) <= mark_y <= stamp_rect[3] + (mark_scale*5)):
+            mark_x = stamp_rect[0] - int(width * 0.04)
 
-        temp_mark_rect = [mark_x - 20, mark_y - 20, mark_x + 40, mark_y + 40]
+        temp_mark_rect = [mark_x - (mark_scale*3), mark_y - (mark_scale*3), mark_x + (mark_scale*5), mark_y + (mark_scale*5)]
         occupied_rects.append(temp_mark_rect)
 
-        draw_right = min(right, mark_x - 30)
+        draw_right = min(right, mark_x - int(width * 0.03))
         step["draw_right"] = draw_right 
         
-        # CRITICAL FIX: Claim the equation's space so notes don't overlap the math
         occupied_rects.append([left, top, draw_right, bottom])
 
-        # Draw Marks (Green for correct, Blue for ECF)
+        # DYNAMIC CHECKMARKS & X MARKS
         if status == "correct":
-            points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
-            draw.line(points, fill=COLOR_CORRECT, width=6, joint="curve")
+            points = [(mark_x, mark_y), (mark_x + int(mark_scale*1.5), mark_y + int(mark_scale*1.5)), (mark_x + int(mark_scale*5), mark_y - int(mark_scale*3))]
+            draw.line(points, fill=COLOR_CORRECT, width=line_w, joint="curve")
         elif status == "error_carried_forward":
-            points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
-            draw.line(points, fill=COLOR_ECF, width=6, joint="curve")
+            points = [(mark_x, mark_y), (mark_x + int(mark_scale*1.5), mark_y + int(mark_scale*1.5)), (mark_x + int(mark_scale*5), mark_y - int(mark_scale*3))]
+            draw.line(points, fill=COLOR_ECF, width=line_w, joint="curve")
         else:
-            # Dynamic Error Color
             error_color = COLOR_MINOR if status == "minor_error" else COLOR_WRONG
-            draw_focus_box(draw, left, top, draw_right, bottom, error_color)
-            draw.line([(mark_x, mark_y - 15), (mark_x + 30, mark_y + 15)], fill=error_color, width=6)
-            draw.line([(mark_x + 30, mark_y - 15), (mark_x, mark_y + 15)], fill=error_color, width=6)
+            draw_focus_box(draw, left, top, draw_right, bottom, error_color, line_w=max(1, line_w-1))
+            draw.line([(mark_x, mark_y - int(mark_scale*2)), (mark_x + int(mark_scale*4), mark_y + int(mark_scale*2))], fill=error_color, width=line_w)
+            draw.line([(mark_x + int(mark_scale*4), mark_y - int(mark_scale*2)), (mark_x, mark_y + int(mark_scale*2))], fill=error_color, width=line_w)
 
     # ==========================================
     # PHASE 3: Draw the Feedback Notes
@@ -313,34 +325,38 @@ def grade_and_draw_full_paper(image_path, output_path):
         except AttributeError:
             text_w, text_h = draw.textsize(wrapped_feedback, font=font)
         
-        # FIX: Balanced vertical padding matches Pydroid perfectly
-        text_w += 30 
-        text_h += 24 
+        # DYNAMIC BOX PADDING (Scales with font size)
+        pad_x = int(font_size * 0.8)
+        pad_y = int(font_size * 0.6)
+        
+        text_w += (pad_x * 2) 
+        text_h += (pad_y * 2) 
 
         start_search_x = draw_right + 10
-        start_search_y = top - 20 
+        start_search_y = top - pad_y
         
         if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
             start_search_x = max(10, box_cx - (text_w // 2))
-            start_search_y = top - text_h - 40 
+            start_search_y = top - text_h - (pad_y * 2)
         
-        note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects)
+        dynamic_search_padding = int(width * 0.02)
+        note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects, padding=dynamic_search_padding)
         occupied_rects.append(note_rect) 
         
         note_cx = note_rect[0] + text_w // 2
         note_cy = note_rect[1] + text_h // 2
         
-        # CRITICAL UI FIX: Connector lines now exclusively draw from the Left or Right sides of the box.
         if note_cx > box_cx:      
             line_start = (draw_right, box_cy)
         else:                           
             line_start = (left, box_cy)
 
-        draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
-        draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
+        draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
+        draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
         
-        # FIX: The absolute sweet spot for vertical centering!
-        draw.text((note_rect[0] + 15, note_rect[1] + 6), wrapped_feedback, fill=error_color, font=font)
+        # DYNAMIC TEXT CENTERING (Perfectly balanced relative to the padding)
+        text_offset_y = int(pad_y * 0.5)
+        draw.text((note_rect[0] + pad_x, note_rect[1] + text_offset_y), wrapped_feedback, fill=error_color, font=font)
 
     if stamp_img:
         overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
