@@ -48,6 +48,7 @@ def get_api_annotations(img_chunk, api_key, language_name):
     img_chunk.save(buffer, format="JPEG")
     base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
+    # UPDATED PROMPT: Added Rule 5 for Native Unicode Math
     prompt = (
         "You are an expert mathematics professor grading a paper.\n"
         "CRITICAL RULES:\n"
@@ -55,6 +56,7 @@ def get_api_annotations(img_chunk, api_key, language_name):
         "2. Group the math into distinct problems. Evaluate every single horizontal line of math. Keep bounding boxes TIGHT.\n"
         "3. Grade using ERROR CARRIED FORWARD (ECF). If a student makes a mistake, but their subsequent steps are logically valid based on that mistake, mark those subsequent steps as 'error_carried_forward'.\n"
         f"4. CRITICAL: Write all 'feedback' strictly in {language_name}.\n"
+        "5. MATH FORMATTING: Do NOT use LaTeX code (no \\frac, \\sqrt, _, or ^). You MUST use standard Unicode characters for all math in your feedback (e.g., write x², ½, √x, ×, ÷, ≈, ³, ∞).\n"
         "Return ONLY a raw JSON array of problem objects. Keys for each problem:\n"
         "- 'lines' (array of objects for each line. Keys:\n"
         "   * 'status' (string, MUST BE EXACTLY ONE OF: 'correct', 'minor_error', 'conceptual_error', 'error_carried_forward'),\n"
@@ -130,12 +132,15 @@ def draw_focus_box(draw, left, top, right, bottom, color, line_w=2):
     thick = max(3, line_w * 2)
     thin = max(1, line_w)
     draw.rectangle([left, top, right, bottom], outline=color, width=thin)
-    draw.line([(left, top+length), (left, top), (left+length, top)], fill=color, width=thick)
-    draw.line([(right-length, top), (right, top), (right, top+length)], fill=color, width=thick)
-    draw.line([(left, bottom-length), (left, bottom), (left+length, bottom)], fill=color, width=thick)
-    draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick)
+    
+    # SMOOTH CORNERS: Added joint="curve"
+    draw.line([(left, top+length), (left, top), (left+length, top)], fill=color, width=thick, joint="curve")
+    draw.line([(right-length, top), (right, top), (right, top+length)], fill=color, width=thick, joint="curve")
+    draw.line([(left, bottom-length), (left, bottom), (left+length, bottom)], fill=color, width=thick, joint="curve")
+    draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick, joint="curve")
 
 def draw_stamp(img_w, img_h, score_text, lang_code):
+    # Scale font based on the smallest dimension to prevent massive stamps on tall photos
     base_font_size = int(min(img_w, img_h) * 0.05)
     stamp_font = load_font(base_font_size)
     label_font = load_font(int(base_font_size * 0.45))
@@ -150,6 +155,7 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     except AttributeError:
         text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
 
+    # DYNAMIC CIRCLE SCALING: Force the circle to be 1.6x larger than the text itself
     stamp_size = int(max(text_w, text_h) * 1.6)
     stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
     s_draw = ImageDraw.Draw(stamp)
@@ -165,6 +171,7 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     score_label = "SCORE"
     if lang_code == "FR": score_label = "NOTE"
 
+    # DYNAMIC TEXT PLACEMENT (Perfectly centered proportionally)
     s_draw.text((stamp_size//2, int(stamp_size * 0.32)), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, int(stamp_size * 0.65)), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
@@ -197,6 +204,7 @@ def grade_api():
         overlay = Image.new("RGBA", original_img.size, (255, 255, 255, 0))
         draw = ImageDraw.Draw(overlay)
         
+        # DYNAMIC GLOBAL SCALING FACTORS
         font_size = int(height * 0.016)
         font = load_font(font_size)
         line_w = max(2, int(height * 0.003))
@@ -313,30 +321,33 @@ def grade_api():
                 wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
 
                 try:
-                    bbox = draw.textbbox((0, 0), wrapped_feedback, font=font)
-                    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                    # PERFECT TEXT CENTERING
+                    bbox = draw.textbbox((0, 0), wrapped_feedback, font=font, align="center")
+                    text_w = bbox[2] - bbox[0]
+                    text_h = bbox[3] - bbox[1]
                 except AttributeError:
                     text_w, text_h = draw.textsize(wrapped_feedback, font=font)
                     
                 pad_x = int(font_size * 0.8)
                 pad_y = int(font_size * 0.6)
                 
-                text_w += (pad_x * 2) 
-                text_h += (pad_y * 2) 
+                box_w = text_w + (pad_x * 2) 
+                box_h = text_h + (pad_y * 2) 
 
                 start_search_x = draw_right + 10
                 start_search_y = top - pad_y
                 
-                if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
-                    start_search_x = max(10, box_cx - (text_w // 2))
-                    start_search_y = top - text_h - (pad_y * 2)
+                if (draw_right - left > width * 0.6) or (start_search_x + box_w > width - 10):
+                    start_search_x = max(10, box_cx - (box_w // 2))
+                    start_search_y = top - box_h - (pad_y * 2)
                 
                 dynamic_search_padding = int(width * 0.02)
-                note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects, padding=dynamic_search_padding)
+                note_rect = find_safe_spot(start_search_x, start_search_y, box_w, box_h, width, height, occupied_rects, padding=dynamic_search_padding)
                 occupied_rects.append(note_rect) 
                 
-                note_cx = note_rect[0] + text_w // 2
-                note_cy = note_rect[1] + text_h // 2
+                # Calculate exact center of the placed box
+                note_cx = note_rect[0] + (box_w // 2)
+                note_cy = note_rect[1] + (box_h // 2)
                 
                 if note_cx > box_cx:      
                     line_start = (draw_right, box_cy)
@@ -345,11 +356,14 @@ def grade_api():
 
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
                 
-                # USING ROUNDED RECTANGLE INSTEAD OF SHARP RECTANGLE
+                # ROUNDED RECTANGLE
                 draw.rounded_rectangle(note_rect, radius=corner_radius, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
                 
-                text_offset_y = int(pad_y * 0.5)
-                draw.text((note_rect[0] + pad_x, note_rect[1] + text_offset_y), wrapped_feedback, fill=error_color, font=font)
+                # FALLBACK-SAFE MULTILINE TEXT RENDERING
+                try:
+                    draw.multiline_text((note_cx, note_cy), wrapped_feedback, fill=error_color, font=font, anchor="mm", align="center")
+                except TypeError:
+                    draw.text((note_rect[0] + pad_x, note_rect[1] + pad_y), wrapped_feedback, fill=error_color, font=font, align="center")
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
