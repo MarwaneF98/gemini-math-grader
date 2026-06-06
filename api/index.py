@@ -136,9 +136,10 @@ def draw_focus_box(draw, left, top, right, bottom, color, line_w=2):
     draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick)
 
 def draw_stamp(img_w, img_h, score_text, lang_code):
-    base_font_size = int(img_h * 0.04)
+    # Scale font based on the smallest dimension to prevent massive stamps on tall photos
+    base_font_size = int(min(img_w, img_h) * 0.05)
     stamp_font = load_font(base_font_size)
-    label_font = load_font(int(base_font_size * 0.4))
+    label_font = load_font(int(base_font_size * 0.45))
     
     temp_img = Image.new("RGBA", (1, 1))
     temp_draw = ImageDraw.Draw(temp_img)
@@ -150,14 +151,14 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     except AttributeError:
         text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
 
-    padding = int(img_w * 0.04)
-    stamp_size = max(text_w, text_h) + (padding * 2)
+    # NEW MATH: Force the circle to be 1.6x larger than the text itself
+    stamp_size = int(max(text_w, text_h) * 1.6)
     stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
     s_draw = ImageDraw.Draw(stamp)
     
-    out_m = int(stamp_size * 0.03)
-    in_m = int(stamp_size * 0.12)
-    out_w = max(2, int(stamp_size * 0.03))
+    out_m = int(stamp_size * 0.02)
+    in_m = int(stamp_size * 0.09)
+    out_w = max(2, int(stamp_size * 0.025))
     in_w = max(1, int(stamp_size * 0.01))
 
     s_draw.ellipse([out_m, out_m, stamp_size-out_m, stamp_size-out_m], fill=(255, 255, 255, 255), outline=COLOR_WRONG, width=out_w)
@@ -344,7 +345,6 @@ def grade_api():
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
                 
-                # FIXED: Increased from 0.3 to 0.5 to push the text beautifully into the true center!
                 text_offset_y = int(pad_y * 0.5)
                 draw.text((note_rect[0] + pad_x, note_rect[1] + text_offset_y), wrapped_feedback, fill=error_color, font=font)
 
