@@ -120,7 +120,8 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
             
-            if not is_overlapping(rect, occupied_rects, padding=20):
+            # CRITICAL FIX: Increased padding to 30 to physically force the box away from equations
+            if not is_overlapping(rect, occupied_rects, padding=30):
                 return rect
                 
     safe_x = min(max(10, cx), img_w - text_w - 10)
@@ -219,7 +220,6 @@ def grade_and_draw_full_paper(image_path, output_path):
                 earned_points += 2
             elif status == "minor_error":
                 earned_points += 1
-            # conceptual_error adds 0 points
 
     # ==========================================
     # PHASE 1: Stamp Reservation
@@ -260,6 +260,9 @@ def grade_and_draw_full_paper(image_path, output_path):
 
         draw_right = min(right, mark_x - 30)
         step["draw_right"] = draw_right 
+        
+        # CRITICAL FIX: Claim the equation's space so notes don't overlap the math
+        occupied_rects.append([left, top, draw_right, bottom])
 
         # Draw Marks (Green for correct, Blue for ECF)
         if status == "correct":
@@ -302,21 +305,18 @@ def grade_and_draw_full_paper(image_path, output_path):
         except AttributeError:
             text_w, text_h = draw.textsize(wrapped_feedback, font=font)
         
-        text_w += 20 
-        text_h += 20
+        # FIX: Balanced vertical padding
+        text_w += 30 
+        text_h += 26 
 
-        # Determine start search position, pushing away from the bottom
         start_search_x = draw_right + 10
-        start_search_y = top
+        start_search_y = top - 20 
         
         if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
             start_search_x = max(10, box_cx - (text_w // 2))
-            start_search_y = top - text_h - 20 # Try to place ABOVE the box instead of below
+            start_search_y = top - text_h - 40 
         
-        temp_mistake_rect = [left, top, draw_right, bottom]
-        search_rects = occupied_rects + [temp_mistake_rect]
-        
-        note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, search_rects)
+        note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects)
         occupied_rects.append(note_rect) 
         
         note_cx = note_rect[0] + text_w // 2
@@ -330,7 +330,9 @@ def grade_and_draw_full_paper(image_path, output_path):
 
         draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
         draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
-        draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=error_color, font=font)
+        
+        # FIX: Pulled the text physically UP to counter the font's invisible top-margin
+        draw.text((note_rect[0] + 15, note_rect[1] + 2), wrapped_feedback, fill=error_color, font=font)
 
     if stamp_img:
         overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
