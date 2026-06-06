@@ -136,7 +136,6 @@ def draw_focus_box(draw, left, top, right, bottom, color, line_w=2):
     draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick)
 
 def draw_stamp(img_w, img_h, score_text, lang_code):
-    # Scale font based on the smallest dimension to prevent massive stamps on tall photos
     base_font_size = int(min(img_w, img_h) * 0.05)
     stamp_font = load_font(base_font_size)
     label_font = load_font(int(base_font_size * 0.45))
@@ -151,7 +150,6 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     except AttributeError:
         text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
 
-    # NEW MATH: Force the circle to be 1.6x larger than the text itself
     stamp_size = int(max(text_w, text_h) * 1.6)
     stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
     s_draw = ImageDraw.Draw(stamp)
@@ -203,6 +201,9 @@ def grade_api():
         font = load_font(font_size)
         line_w = max(2, int(height * 0.003))
         mark_scale = max(2, int(height * 0.006))
+        
+        # DYNAMIC RADIUS FOR ROUNDED CORNERS
+        corner_radius = max(4, int(font_size * 0.4))
         
         occupied_rects = []
         
@@ -343,7 +344,9 @@ def grade_api():
                     line_start = (left, box_cy)
 
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
-                draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
+                
+                # USING ROUNDED RECTANGLE INSTEAD OF SHARP RECTANGLE
+                draw.rounded_rectangle(note_rect, radius=corner_radius, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
                 
                 text_offset_y = int(pad_y * 0.5)
                 draw.text((note_rect[0] + pad_x, note_rect[1] + text_offset_y), wrapped_feedback, fill=error_color, font=font)
