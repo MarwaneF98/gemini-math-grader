@@ -26,10 +26,10 @@ def serve_frontend():
         return f"CRITICAL ERROR: Could not load index.html. Ensure it is in the root folder. Details: {str(e)}", 500
 
 # --- DESIGN COLORS ---
-COLOR_CORRECT = (22, 163, 74, 255)       # Green (Flawless)
-COLOR_ECF = (59, 130, 246, 255)          # Blue (Error Carried Forward)
-COLOR_MINOR = (147, 51, 234, 255)        # Purple (Minor Errors - Replaces the yellow/orange!)
-COLOR_WRONG = (220, 38, 38, 255)         # Red (Conceptual Errors)
+COLOR_CORRECT = (22, 163, 74, 255)       
+COLOR_ECF = (59, 130, 246, 255)          
+COLOR_MINOR = (147, 51, 234, 255)        
+COLOR_WRONG = (220, 38, 38, 255)         
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size):
@@ -42,7 +42,6 @@ def load_font(target_size):
     return ImageFont.load_default()
 
 def get_api_annotations(img_chunk, api_key, language_name):
-    # CRITICAL FIX: Restored the correct 3.5-flash model
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
     
     buffer = io.BytesIO()
@@ -71,13 +70,11 @@ def get_api_annotations(img_chunk, api_key, language_name):
     for attempt in range(3): 
         try:
             print(f"Attempt {attempt + 1}: Sending to Gemini 3.5 Flash...", flush=True)
-            # CRITICAL FIX: Restored timeout to 50 seconds to prevent Vercel from killing the task
             response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=50)
             
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
                 
-                # Isolate the JSON array to ignore polite conversational text
                 start_idx = result_text.find('[')
                 end_idx = result_text.rfind(']')
                 
@@ -121,7 +118,8 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             rect = [test_x, test_y, test_x + text_w, test_y + text_h]
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
-            if not is_overlapping(rect, occupied_rects, padding=20): 
+            # CRITICAL FIX: Increased padding to 30 to physically force the box away from equations
+            if not is_overlapping(rect, occupied_rects, padding=30): 
                 return rect
                 
     safe_x = min(max(10, cx), img_w - text_w - 10)
@@ -274,7 +272,6 @@ def grade_api():
             
             occupied_rects.append([left, top, draw_right, bottom])
 
-            # Draw Marks (Green for correct, Blue for ECF)
             if status == "correct":
                 points = [(mark_x, mark_y), (mark_x + 12, mark_y + 12), (mark_x + 35, mark_y - 18)]
                 draw.line(points, fill=COLOR_CORRECT, width=6, joint="curve")
@@ -310,16 +307,17 @@ def grade_api():
                 except AttributeError:
                     text_w, text_h = draw.textsize(wrapped_feedback, font=font)
                     
-                text_w += 20 
-                text_h += 20
+                # CRITICAL FIX: Increased internal padding to prevent text from touching the bottom line
+                text_w += 30 
+                text_h += 30
 
-                # Determine start search position, pushing away from the bottom
                 start_search_x = draw_right + 10
-                start_search_y = top
+                start_search_y = top - 20 # Start looking slightly higher automatically
                 
                 if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
                     start_search_x = max(10, box_cx - (text_w // 2))
-                    start_search_y = top - text_h - 20 # Try to place ABOVE the box instead of below
+                    # CRITICAL FIX: Force the note box vertically higher to keep it off the text
+                    start_search_y = top - text_h - 40 
                 
                 note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects)
                 occupied_rects.append(note_rect) 
@@ -327,7 +325,6 @@ def grade_api():
                 note_cx = note_rect[0] + text_w // 2
                 note_cy = note_rect[1] + text_h // 2
                 
-                # CRITICAL UI FIX: Connector lines now exclusively draw from the Left or Right sides of the box.
                 if note_cx > box_cx:      
                     line_start = (draw_right, box_cy)
                 else:                           
@@ -335,7 +332,9 @@ def grade_api():
 
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
-                draw.text((note_rect[0] + 10, note_rect[1] + 10), wrapped_feedback, fill=error_color, font=font)
+                
+                # CRITICAL FIX: Draw the text perfectly centered internally based on the new +30 padding
+                draw.text((note_rect[0] + 15, note_rect[1] + 12), wrapped_feedback, fill=error_color, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
