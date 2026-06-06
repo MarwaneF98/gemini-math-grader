@@ -155,7 +155,6 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
     s_draw = ImageDraw.Draw(stamp)
     
-    # DYNAMIC CIRCLE SCALING (Fixes text escaping circles on low quality images)
     out_m = int(stamp_size * 0.03)
     in_m = int(stamp_size * 0.12)
     out_w = max(2, int(stamp_size * 0.03))
@@ -167,7 +166,6 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     score_label = "SCORE"
     if lang_code == "FR": score_label = "NOTE"
 
-    # DYNAMIC TEXT PLACEMENT (Perfectly centered proportionally)
     s_draw.text((stamp_size//2, int(stamp_size * 0.32)), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, int(stamp_size * 0.65)), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
@@ -200,7 +198,6 @@ def grade_api():
         overlay = Image.new("RGBA", original_img.size, (255, 255, 255, 0))
         draw = ImageDraw.Draw(overlay)
         
-        # DYNAMIC GLOBAL SCALING FACTORS
         font_size = int(height * 0.016)
         font = load_font(font_size)
         line_w = max(2, int(height * 0.003))
@@ -270,7 +267,6 @@ def grade_api():
 
             box_cy = top + (bottom - top) // 2
             
-            # DYNAMIC MARGIN MARK POSITIONING
             mark_x = width - int(width * 0.06) 
             mark_y = box_cy
 
@@ -285,7 +281,6 @@ def grade_api():
             
             occupied_rects.append([left, top, draw_right, bottom])
 
-            # DYNAMIC CHECKMARKS & X MARKS
             if status == "correct":
                 points = [(mark_x, mark_y), (mark_x + int(mark_scale*1.5), mark_y + int(mark_scale*1.5)), (mark_x + int(mark_scale*5), mark_y - int(mark_scale*3))]
                 draw.line(points, fill=COLOR_CORRECT, width=line_w, joint="curve")
@@ -321,7 +316,6 @@ def grade_api():
                 except AttributeError:
                     text_w, text_h = draw.textsize(wrapped_feedback, font=font)
                     
-                # DYNAMIC BOX PADDING (Scales with font size)
                 pad_x = int(font_size * 0.8)
                 pad_y = int(font_size * 0.6)
                 
@@ -350,8 +344,8 @@ def grade_api():
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
                 
-                # DYNAMIC TEXT CENTERING (Perfectly balanced relative to the padding)
-                text_offset_y = int(pad_y * 0.3)
+                # FIXED: Increased from 0.3 to 0.5 to push the text beautifully into the true center!
+                text_offset_y = int(pad_y * 0.5)
                 draw.text((note_rect[0] + pad_x, note_rect[1] + text_offset_y), wrapped_feedback, fill=error_color, font=font)
 
         if stamp_img:
