@@ -1,3 +1,5 @@
+<div align="center">
+
 # Gemini Math Grader 📝🤖
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-gemini--math--grader.vercel.app-success?style=for-the-badge)](https://gemini-math-grader.vercel.app/)
