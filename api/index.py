@@ -306,9 +306,9 @@ def grade_api():
                 except AttributeError:
                     text_w, text_h = draw.textsize(wrapped_feedback, font=font)
                     
-                # NEW FIX: Decreased vertical padding to pull the borders tighter
+                # FIX: Balanced vertical padding
                 text_w += 30 
-                text_h += 20 
+                text_h += 26 
 
                 start_search_x = draw_right + 10
                 start_search_y = top - 20 
@@ -331,8 +331,8 @@ def grade_api():
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
                 
-                # NEW FIX: Shifted the starting Y coordinate higher inside the box to visually center it
-                draw.text((note_rect[0] + 15, note_rect[1] + 8), wrapped_feedback, fill=error_color, font=font)
+                # FIX: Pulled the text physically UP to counter the font's invisible top-margin
+                draw.text((note_rect[0] + 15, note_rect[1] + 2), wrapped_feedback, fill=error_color, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
