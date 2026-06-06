@@ -32,7 +32,15 @@ COLOR_WRONG = (220, 38, 38, 255)         # Red (Conceptual Errors)
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size, bold=False):
-    # Standard font paths for Android, Windows, macOS, and Linux
+    # 1. First, try to load a local font file (just like the web app does)
+    local_font_path = os.path.join(os.path.dirname(__file__), "Roboto-Bold.ttf")
+    if os.path.exists(local_font_path):
+        try:
+            return ImageFont.truetype(local_font_path, size=target_size)
+        except IOError:
+            pass
+
+    # 2. Next, try standard system fonts
     font_paths = [
         "/system/fonts/Roboto-Bold.ttf" if bold else "/system/fonts/Roboto-Regular.ttf",
         "/system/fonts/NotoSans-Bold.ttf" if bold else "/system/fonts/NotoSans-Regular.ttf",
@@ -305,9 +313,9 @@ def grade_and_draw_full_paper(image_path, output_path):
         except AttributeError:
             text_w, text_h = draw.textsize(wrapped_feedback, font=font)
         
-        # FIX: Balanced vertical padding
+        # FIX: Balanced vertical padding matches Pydroid perfectly
         text_w += 30 
-        text_h += 26 
+        text_h += 24 
 
         start_search_x = draw_right + 10
         start_search_y = top - 20 
@@ -331,8 +339,8 @@ def grade_and_draw_full_paper(image_path, output_path):
         draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
         draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
         
-        # FIX: Pulled the text physically UP to counter the font's invisible top-margin
-        draw.text((note_rect[0] + 15, note_rect[1] + 2), wrapped_feedback, fill=error_color, font=font)
+        # FIX: The absolute sweet spot for vertical centering!
+        draw.text((note_rect[0] + 15, note_rect[1] + 6), wrapped_feedback, fill=error_color, font=font)
 
     if stamp_img:
         overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
