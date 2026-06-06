@@ -1,5 +1,3 @@
-<div align="center">
-
 # Gemini Math Grader 📝🤖
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-gemini--math--grader.vercel.app-success?style=for-the-badge)](https://gemini-math-grader.vercel.app/)
@@ -13,7 +11,7 @@
 ![JavaScript](https://img.shields.io/badge/Logic-JavaScript-323330?style=for-the-badge&logo=javascript&logoColor=F7DF1E)
 ![Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 ![Gemini API](https://img.shields.io/badge/AI_Engine-Gemini%203.5%20Flash-8A2BE2?style=for-the-badge&logo=google&logoColor=white)
-![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Windows%20%7C%20Linux%20%7C%20Android-lightgrey?style=for-the-badge)
+![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Windows%20%7C%20Linux%20%7C%20Android%20(Termux/Pydroid)-lightgrey?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 An automated AI teaching assistant that uses the **Gemini 3.5 Flash API** to visually inspect, grade, and annotate handwritten math assignments directly on the image. 
@@ -28,6 +26,7 @@ Whether you want to use the sleek web interface directly from your browser or ru
 
 * **Premium Modern UI:** A sleek, fully responsive dark-mode web application featuring a modern dropzone for file uploads, rounded corners, and native mobile support.
 * **Resolution-Independent Rendering:** Text scaling, visual padding, and UI elements (like the score stamp) mathematically adapt to the aspect ratio and resolution of any uploaded photo, ensuring perfect proportions whether the image is 4K or 720p.
+* **Native Unicode Math Engine:** Bypasses heavy LaTeX backend dependencies by commanding the AI to output pure Unicode math symbols (x², ½, √), keeping serverless deployments lightning-fast while maintaining textbook-quality notation on the final image.
 * **Instant Web Access:** No installation required. Just visit the live site, enter your own API key, and start grading.
 * **Privacy-First API Key Storage:** In the web app, your Gemini API key is securely saved directly to your browser's local memory (`localStorage`). It is never stored on our servers.
 * **Bilingual Interface (EN/FR):** A seamless English/French language toggle. The AI's feedback and the graded stamp translate dynamically.
@@ -60,15 +59,15 @@ pip install -r requirements.txt
 ```
 **2. Set your API Key Environment Variable:**
  * **Linux / macOS / Termux:**
-```bash
-  export GEMINI_API_KEY="your_api_key_here"
-
-```
+   ```bash
+   export GEMINI_API_KEY="your_api_key_here"
+   
+   ```
  * **Windows (Command Prompt):**
-```cmd
-  set GEMINI_API_KEY="your_api_key_here"
-
-```
+   ```cmd
+   set GEMINI_API_KEY="your_api_key_here"
+   
+   ```
 **3. Run the Grader:**
 ```bash
 python grader.py -i input_homework.jpg -o graded_homework.jpg
@@ -86,4 +85,4 @@ If you want to fork this project and host your own version of the website, it is
  4. **Phase 2 (Dynamic Math Boxes & Marks):** It maps out the individual equation lines in the right margin, drawing Green checkmarks for flawless steps, Blue checkmarks for logic recoveries (ECF), Purple boxes for minor mistakes, and Red boxes for conceptual failures.
  5. **Phase 3 (Smart Routing):** It evaluates incorrect steps and draws text feedback boxes. Using a custom radial search algorithm, the notes dynamically look for empty space nearby, gracefully dodging the stamp, the margin marks, and the original equations. Connector lines intelligently anchor to the sides of the error boxes to keep the math clear!
 ## 📄 License
-© 2026 Marwane Farhane. Licensed under the MIT License. Feel free to use, modify, and distribute it!
+© 2026 Marwane Farhane (❄️ Snowflake). Licensed under the MIT License. Feel free to fork, modify, and distribute it!
