@@ -118,7 +118,6 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects):
             rect = [test_x, test_y, test_x + text_w, test_y + text_h]
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
-            # CRITICAL FIX: Increased padding to 30 to physically force the box away from equations
             if not is_overlapping(rect, occupied_rects, padding=30): 
                 return rect
                 
@@ -307,16 +306,15 @@ def grade_api():
                 except AttributeError:
                     text_w, text_h = draw.textsize(wrapped_feedback, font=font)
                     
-                # CRITICAL FIX: Increased internal padding to prevent text from touching the bottom line
+                # NEW FIX: Decreased vertical padding to pull the borders tighter
                 text_w += 30 
-                text_h += 30
+                text_h += 20 
 
                 start_search_x = draw_right + 10
-                start_search_y = top - 20 # Start looking slightly higher automatically
+                start_search_y = top - 20 
                 
                 if (draw_right - left > width * 0.6) or (start_search_x + text_w > width - 10):
                     start_search_x = max(10, box_cx - (text_w // 2))
-                    # CRITICAL FIX: Force the note box vertically higher to keep it off the text
                     start_search_y = top - text_h - 40 
                 
                 note_rect = find_safe_spot(start_search_x, start_search_y, text_w, text_h, width, height, occupied_rects)
@@ -333,8 +331,8 @@ def grade_api():
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=3)
                 draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=2)
                 
-                # CRITICAL FIX: Draw the text perfectly centered internally based on the new +30 padding
-                draw.text((note_rect[0] + 15, note_rect[1] + 12), wrapped_feedback, fill=error_color, font=font)
+                # NEW FIX: Shifted the starting Y coordinate higher inside the box to visually center it
+                draw.text((note_rect[0] + 15, note_rect[1] + 8), wrapped_feedback, fill=error_color, font=font)
 
         if stamp_img:
             overlay.paste(stamp_img, (stamp_x, stamp_y), stamp_img)
