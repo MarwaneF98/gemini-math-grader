@@ -32,7 +32,7 @@ COLOR_WRONG = (220, 38, 38, 255)         # Red (Conceptual Errors)
 COLOR_NOTE_BG = (255, 255, 255, 245)     
 
 def load_font(target_size, bold=False):
-    # 1. First, try to load a local font file
+    # 1. First, try to load a local font file (just like the web app does)
     local_font_path = os.path.join(os.path.dirname(__file__), "Roboto-Bold.ttf")
     if os.path.exists(local_font_path):
         try:
@@ -87,7 +87,7 @@ def get_api_annotations(img_chunk):
             if response.status_code == 200:
                 result_text = response.json()['candidates'][0]['content']['parts'][0]['text']
                 
-                # Isolate the JSON array
+                # Isolate the JSON array to ignore any polite conversational text the AI adds
                 start_idx = result_text.find('[')
                 end_idx = result_text.rfind(']')
                 
@@ -128,6 +128,7 @@ def find_safe_spot(cx, cy, text_w, text_h, img_w, img_h, occupied_rects, padding
             if rect[0] < 10 or rect[1] < 60 or rect[2] > img_w - 10 or rect[3] > img_h - 10:
                 continue
             
+            # CRITICAL FIX: Increased padding to 30 to physically force the box away from equations
             if not is_overlapping(rect, occupied_rects, padding=padding):
                 return rect
                 
@@ -197,6 +198,9 @@ def grade_and_draw_full_paper(image_path, output_path):
     font = load_font(font_size, bold=True)
     line_w = max(2, int(height * 0.003))
     mark_scale = max(2, int(height * 0.006))
+    
+    # DYNAMIC RADIUS FOR ROUNDED CORNERS
+    corner_radius = max(4, int(font_size * 0.4))
     
     occupied_rects = []
     
@@ -283,6 +287,7 @@ def grade_and_draw_full_paper(image_path, output_path):
         draw_right = min(right, mark_x - int(width * 0.03))
         step["draw_right"] = draw_right 
         
+        # Claim the equation's space so notes don't overlap the math
         occupied_rects.append([left, top, draw_right, bottom])
 
         # DYNAMIC CHECKMARKS & X MARKS
@@ -325,7 +330,7 @@ def grade_and_draw_full_paper(image_path, output_path):
         except AttributeError:
             text_w, text_h = draw.textsize(wrapped_feedback, font=font)
         
-        # DYNAMIC BOX PADDING (Scales with font size)
+        # DYNAMIC BOX PADDING
         pad_x = int(font_size * 0.8)
         pad_y = int(font_size * 0.6)
         
@@ -346,15 +351,18 @@ def grade_and_draw_full_paper(image_path, output_path):
         note_cx = note_rect[0] + text_w // 2
         note_cy = note_rect[1] + text_h // 2
         
+        # Connector lines exclusively draw from the Left or Right sides of the box
         if note_cx > box_cx:      
             line_start = (draw_right, box_cy)
         else:                           
             line_start = (left, box_cy)
 
         draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
-        draw.rectangle(note_rect, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
         
-        # DYNAMIC TEXT CENTERING (Perfectly balanced relative to the padding)
+        # USING ROUNDED RECTANGLE INSTEAD OF SHARP RECTANGLE
+        draw.rounded_rectangle(note_rect, radius=corner_radius, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
+        
+        # DYNAMIC TEXT CENTERING
         text_offset_y = int(pad_y * 0.5)
         draw.text((note_rect[0] + pad_x, note_rect[1] + text_offset_y), wrapped_feedback, fill=error_color, font=font)
 
