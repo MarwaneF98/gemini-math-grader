@@ -55,7 +55,7 @@
             user-select: none;         /* Standard */
         }
 
-        /* RE-ENABLE SELECTION FOR INPUTS ONLY */
+        /* RE-ENABLE SELECTION FOR INPUTS ONLY (Needed for API key pasting/typing) */
         input {
             -webkit-user-select: auto;
             -moz-user-select: auto;
@@ -131,6 +131,7 @@
             overflow: hidden;
         }
 
+        /* Left-aligned typography for a professional look */
         h1 {
             margin-top: 0;
             font-size: 22px;
@@ -277,7 +278,7 @@
             margin-top: 16px;
             font-size: 14px;
             font-weight: 500;
-            color: var(--accent-color); /* PERFECT COLOR MATCH */
+            color: var(--accent-color);
             text-align: center;
             flex-shrink: 0;
         }
@@ -293,10 +294,8 @@
         }
 
         .snowflake-icon {
-            width: 36px;
-            height: 36px;
-            color: var(--accent-color); /* PERFECT COLOR MATCH */
-            animation: spin 3s linear infinite;
+            animation: spin 2s linear infinite;
+            color: var(--accent-color);
         }
 
         @keyframes spin {
@@ -328,6 +327,7 @@
             border: 1px solid var(--border-color);
         }
 
+        /* Explicit 100% dimensions force object-fit to shrink the image inside the flex parent */
         img#preview {
             width: 100%;
             height: 100%; 
@@ -376,6 +376,7 @@
     </div>
 
     <main>
+        <!-- Auth Screen -->
         <div id="auth-screen" class="container">
             <h1 id="t-auth-title">Access Grader</h1>
             <p class="subtitle" id="t-auth-sub">Please provide your Gemini API key to access the tool. It will be saved securely on your device.</p>
@@ -388,6 +389,7 @@
             </form>
         </div>
 
+        <!-- Grader Screen -->
         <div id="grader-screen" class="container">
             <h1 id="t-grader-title">AI Math Grader</h1>
             <p class="subtitle" id="t-grader-sub">Upload a photo of handwritten math to evaluate it.</p>
@@ -396,6 +398,7 @@
                 <div class="form-group">
                     <label class="custom-file-upload">
                         <input type="file" id="paper-image" accept="image/*" required>
+                        <!-- Upload SVG Icon -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="17 8 12 3 7 8"></polyline>
@@ -409,8 +412,13 @@
             </form>
 
             <div id="loader-container" class="loader-container">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="snowflake-icon">
-                    <path fill="currentColor" d="M318.5 204.6l31.1-31.1c4.7-4.7 4.7-12.3 0-17l-17-17c-4.7-4.7-12.3-4.7-17 0l-31.1 31.1-23.8-13.7v-36.5l42.4-42.4c4.7-4.7 4.7-12.3 0-17l-17-17c-4.7-4.7-12.3-4.7-17 0l-42.4 42.4V48c0-6.6-5.4-12-12-12h-24c-6.6 0-12 5.4-12 12v40.4L136.3 46c-4.7-4.7-12.3-4.7-17 0l-17 17c-4.7 4.7-4.7 12.3 0 17l42.4 42.4v36.5l-23.8 13.7-31.1-31.1c-4.7-4.7-12.3-4.7-17 0l-17 17c-4.7 4.7-4.7 12.3 0 17l31.1 31.1-23.8 13.7H40c-6.6 0-12 5.4-12 12v24c0 6.6 5.4 12 12 12h40.4l-42.4 42.4c-4.7 4.7-4.7 12.3 0 17l17 17c4.7 4.7 12.3 4.7 17 0l42.4-42.4 23.8 13.7-31.1 31.1c-4.7 4.7-12.3 4.7-17 0l-17-17c-4.7-4.7-4.7-12.3 0-17l31.1-31.1 23.8-13.7v36.5l-42.4 42.4c-4.7 4.7-4.7 12.3 0 17l17 17c4.7 4.7 12.3 4.7 17 0l42.4-42.4V464c0 6.6 5.4 12 12 12h24c6.6 0 12-5.4 12-12v-40.4l42.4 42.4c4.7 4.7 12.3 4.7 17 0l17-17c4.7-4.7 4.7-12.3 0-17l-42.4-42.4v-36.5l23.8-13.7 31.1 31.1c4.7 4.7 12.3 4.7 17 0l17-17c4.7-4.7 4.7-12.3 0-17l-31.1-31.1 23.8-13.7H408c6.6 0 12-5.4 12-12v-24c0-6.6-5.4-12-12-12h-40.4l42.4-42.4c4.7-4.7 4.7-12.3 0-17l-17-17c-4.7-4.7-12.3-4.7-17 0l-42.4 42.4-23.8-13.7z"/>
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <line x1="12" y1="2" x2="12" y2="22"></line>
+                    <path d="m20 16-4-4 4-4"></path>
+                    <path d="m4 8 4 4-4 4"></path>
+                    <path d="m16 4-4 4-4-4"></path>
+                    <path d="m8 20 4-4 4 4"></path>
                 </svg>
             </div>
 
@@ -429,7 +437,7 @@
     </main>
 
     <footer>
-        &copy; 2026 Marwane Farhane (❄️ Snowflake). <a href="#" id="clear-key-link">Change API Key</a>
+        &copy; 2026 Marwane Farhane. <a href="#" id="clear-key-link">Change API Key</a>
     </footer>
 
     <script>
@@ -544,6 +552,7 @@
             document.querySelector('#grader-screen p.subtitle').style.display = 'block';
             document.getElementById('grader-form').style.display = 'block';
             document.getElementById('status').textContent = '';
+            // Remove the result mode class to allow the container to shrink back
             document.getElementById('grader-screen').classList.remove('result-mode');
         }
 
@@ -609,6 +618,7 @@
                 resultSection.style.display = 'flex';
                 statusText.textContent = uiText[currentLang].statusComplete;
                 
+                // Add class to lock the container height and force the image to shrink
                 graderScreen.classList.add('result-mode');
                 
             } catch (error) {
