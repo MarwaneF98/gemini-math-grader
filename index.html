@@ -11,8 +11,6 @@
     <link rel="icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
         :root {
             /* Premium Dark Theme Palette */
@@ -296,9 +294,8 @@
         }
 
         .snowflake-icon {
-            font-size: 36px;
+            animation: spin 2s linear infinite;
             color: var(--accent-color);
-            animation: spin 3s linear infinite;
         }
 
         @keyframes spin {
@@ -330,6 +327,7 @@
             border: 1px solid var(--border-color);
         }
 
+        /* Explicit 100% dimensions force object-fit to shrink the image inside the flex parent */
         img#preview {
             width: 100%;
             height: 100%; 
@@ -415,7 +413,14 @@
             </form>
 
             <div id="loader-container" class="loader-container">
-                <i class="fas fa-snowflake snowflake-icon"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <line x1="12" y1="2" x2="12" y2="22"></line>
+                    <path d="m20 16-4-4 4-4"></path>
+                    <path d="m4 8 4 4-4 4"></path>
+                    <path d="m16 4-4 4-4-4"></path>
+                    <path d="m8 20 4-4 4 4"></path>
+                </svg>
             </div>
 
             <div id="status"></div>
@@ -551,6 +556,7 @@
             document.querySelector('#grader-screen p.subtitle').style.display = 'block';
             document.getElementById('grader-form').style.display = 'block';
             document.getElementById('status').textContent = '';
+            // Remove the result mode class to allow the container to shrink back
             document.getElementById('grader-screen').classList.remove('result-mode');
         }
 
@@ -616,6 +622,7 @@
                 resultSection.style.display = 'flex';
                 statusText.textContent = uiText[currentLang].statusComplete;
                 
+                // Add class to lock the container height and force the image to shrink
                 graderScreen.classList.add('result-mode');
                 
             } catch (error) {
