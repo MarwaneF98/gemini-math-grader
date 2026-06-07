@@ -11,8 +11,6 @@
     <link rel="icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
         :root {
             /* Premium Dark Theme Palette */
@@ -57,7 +55,7 @@
             user-select: none;         /* Standard */
         }
 
-        /* RE-ENABLE SELECTION FOR INPUTS ONLY (Needed for API key pasting/typing) */
+        /* RE-ENABLE SELECTION FOR INPUTS ONLY */
         input {
             -webkit-user-select: auto;
             -moz-user-select: auto;
@@ -133,7 +131,6 @@
             overflow: hidden;
         }
 
-        /* Left-aligned typography for a professional look */
         h1 {
             margin-top: 0;
             font-size: 22px;
@@ -280,7 +277,7 @@
             margin-top: 16px;
             font-size: 14px;
             font-weight: 500;
-            color: var(--accent-color); /* PERFECT MATCH */
+            color: var(--accent-color); /* PERFECT COLOR MATCH */
             text-align: center;
             flex-shrink: 0;
         }
@@ -296,8 +293,9 @@
         }
 
         .snowflake-icon {
-            font-size: 36px;
-            color: var(--accent-color); /* PERFECT MATCH */
+            width: 36px;
+            height: 36px;
+            color: var(--accent-color); /* PERFECT COLOR MATCH */
             animation: spin 3s linear infinite;
         }
 
@@ -411,7 +409,9 @@
             </form>
 
             <div id="loader-container" class="loader-container">
-                <i class="fas fa-snowflake snowflake-icon"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" class="snowflake-icon">
+                    <path fill="currentColor" d="M318.5 204.6l31.1-31.1c4.7-4.7 4.7-12.3 0-17l-17-17c-4.7-4.7-12.3-4.7-17 0l-31.1 31.1-23.8-13.7v-36.5l42.4-42.4c4.7-4.7 4.7-12.3 0-17l-17-17c-4.7-4.7-12.3-4.7-17 0l-42.4 42.4V48c0-6.6-5.4-12-12-12h-24c-6.6 0-12 5.4-12 12v40.4L136.3 46c-4.7-4.7-12.3-4.7-17 0l-17 17c-4.7 4.7-4.7 12.3 0 17l42.4 42.4v36.5l-23.8 13.7-31.1-31.1c-4.7-4.7-12.3-4.7-17 0l-17 17c-4.7 4.7-4.7 12.3 0 17l31.1 31.1-23.8 13.7H40c-6.6 0-12 5.4-12 12v24c0 6.6 5.4 12 12 12h40.4l-42.4 42.4c-4.7 4.7-4.7 12.3 0 17l17 17c4.7 4.7 12.3 4.7 17 0l42.4-42.4 23.8 13.7-31.1 31.1c-4.7 4.7-12.3 4.7-17 0l-17-17c-4.7-4.7-4.7-12.3 0-17l31.1-31.1 23.8-13.7v36.5l-42.4 42.4c-4.7 4.7-4.7 12.3 0 17l17 17c4.7 4.7 12.3 4.7 17 0l42.4-42.4V464c0 6.6 5.4 12 12 12h24c6.6 0 12-5.4 12-12v-40.4l42.4 42.4c4.7 4.7 12.3 4.7 17 0l17-17c4.7-4.7 4.7-12.3 0-17l-42.4-42.4v-36.5l23.8-13.7 31.1 31.1c4.7 4.7 12.3 4.7 17 0l17-17c4.7-4.7 4.7-12.3 0-17l-31.1-31.1 23.8-13.7H408c6.6 0 12-5.4 12-12v-24c0-6.6-5.4-12-12-12h-40.4l42.4-42.4c4.7-4.7 4.7-12.3 0-17l-17-17c-4.7-4.7-12.3-4.7-17 0l-42.4 42.4-23.8-13.7z"/>
+                </svg>
             </div>
 
             <div id="status"></div>
