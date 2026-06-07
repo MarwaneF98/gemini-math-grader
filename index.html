@@ -11,6 +11,8 @@
     <link rel="icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
         :root {
             /* Premium Dark Theme Palette */
@@ -294,8 +296,9 @@
         }
 
         .snowflake-icon {
-            animation: spin 2s linear infinite;
+            font-size: 36px;
             color: var(--accent-color);
+            animation: spin 3s linear infinite;
         }
 
         @keyframes spin {
@@ -327,7 +330,6 @@
             border: 1px solid var(--border-color);
         }
 
-        /* Explicit 100% dimensions force object-fit to shrink the image inside the flex parent */
         img#preview {
             width: 100%;
             height: 100%; 
@@ -376,7 +378,6 @@
     </div>
 
     <main>
-        <!-- Auth Screen -->
         <div id="auth-screen" class="container">
             <h1 id="t-auth-title">Access Grader</h1>
             <p class="subtitle" id="t-auth-sub">Please provide your Gemini API key to access the tool. It will be saved securely on your device.</p>
@@ -387,9 +388,12 @@
                 </div>
                 <button type="submit" class="primary-btn" id="t-auth-btn">Authenticate</button>
             </form>
+
+            <p style="font-size: 13px; color: var(--text-secondary); text-align: center; margin-top: 16px; margin-bottom: 0;">
+                <span id="t-no-key">Don't have a key? Get a free one in 1-click from</span> <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--accent-color); text-decoration: none; font-weight: 500;">Google AI Studio</a>.
+            </p>
         </div>
 
-        <!-- Grader Screen -->
         <div id="grader-screen" class="container">
             <h1 id="t-grader-title">AI Math Grader</h1>
             <p class="subtitle" id="t-grader-sub">Upload a photo of handwritten math to evaluate it.</p>
@@ -398,7 +402,6 @@
                 <div class="form-group">
                     <label class="custom-file-upload">
                         <input type="file" id="paper-image" accept="image/*" required>
-                        <!-- Upload SVG Icon -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                             <polyline points="17 8 12 3 7 8"></polyline>
@@ -412,14 +415,7 @@
             </form>
 
             <div id="loader-container" class="loader-container">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
-                    <line x1="2" y1="12" x2="22" y2="12"></line>
-                    <line x1="12" y1="2" x2="12" y2="22"></line>
-                    <path d="m20 16-4-4 4-4"></path>
-                    <path d="m4 8 4 4-4 4"></path>
-                    <path d="m16 4-4 4-4-4"></path>
-                    <path d="m8 20 4-4 4 4"></path>
-                </svg>
+                <i class="fas fa-snowflake snowflake-icon"></i>
             </div>
 
             <div id="status"></div>
@@ -437,7 +433,7 @@
     </main>
 
     <footer>
-        &copy; 2026 Marwane Farhane <a href="#" id="clear-key-link">Change API Key</a>
+        &copy; 2026 Marwane Farhane (❄️ Snowflake). <a href="#" id="clear-key-link">Change API Key</a>
     </footer>
 
     <script>
@@ -460,7 +456,8 @@
                 changeKey: "Change API Key",
                 statusProcess: "Processing...",
                 statusAnalyze: "Analyzing and grading paper...",
-                statusComplete: "Grading complete!"
+                statusComplete: "Grading complete!",
+                noKey: "Don't have a key? Get a free one in 1-click from"
             },
             FR: {
                 authTitle: "Accès au Correcteur",
@@ -477,7 +474,8 @@
                 changeKey: "Changer la clé API",
                 statusProcess: "Traitement en cours...",
                 statusAnalyze: "Analyse et correction en cours...",
-                statusComplete: "Correction terminée !"
+                statusComplete: "Correction terminée !",
+                noKey: "Vous n'avez pas de clé ? Obtenez-en une gratuite sur"
             }
         };
 
@@ -507,6 +505,7 @@
             document.getElementById('t-auth-sub').textContent = t.authSub;
             document.getElementById('api-key-input').placeholder = t.keyPlace;
             document.getElementById('t-auth-btn').textContent = t.authBtn;
+            document.getElementById('t-no-key').textContent = t.noKey;
             
             document.getElementById('t-grader-title').textContent = t.graderTitle;
             document.getElementById('t-grader-sub').textContent = t.graderSub;
@@ -552,7 +551,6 @@
             document.querySelector('#grader-screen p.subtitle').style.display = 'block';
             document.getElementById('grader-form').style.display = 'block';
             document.getElementById('status').textContent = '';
-            // Remove the result mode class to allow the container to shrink back
             document.getElementById('grader-screen').classList.remove('result-mode');
         }
 
@@ -618,7 +616,6 @@
                 resultSection.style.display = 'flex';
                 statusText.textContent = uiText[currentLang].statusComplete;
                 
-                // Add class to lock the container height and force the image to shrink
                 graderScreen.classList.add('result-mode');
                 
             } catch (error) {
