@@ -11,6 +11,8 @@
     <link rel="icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg" type="image/jpeg">
     <link rel="apple-touch-icon" href="https://i.imgur.com/YOUR_IMAGE_ID.jpg">
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
         :root {
             /* Premium Dark Theme Palette */
@@ -294,8 +296,9 @@
         }
 
         .snowflake-icon {
-            animation: spin 2s linear infinite;
+            font-size: 36px;
             color: var(--accent-color);
+            animation: spin 3s linear infinite;
         }
 
         @keyframes spin {
@@ -327,7 +330,6 @@
             border: 1px solid var(--border-color);
         }
 
-        /* Explicit 100% dimensions force object-fit to shrink the image inside the flex parent */
         img#preview {
             width: 100%;
             height: 100%; 
@@ -409,23 +411,7 @@
             </form>
 
             <div id="loader-container" class="loader-container">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="snowflake-icon">
-                    <g>
-                        <line x1="12" y1="2" x2="12" y2="22"></line>
-                        <polyline points="8,6 12,2 16,6"></polyline>
-                        <polyline points="8,18 12,22 16,18"></polyline>
-                    </g>
-                    <g transform="rotate(60 12 12)">
-                        <line x1="12" y1="2" x2="12" y2="22"></line>
-                        <polyline points="8,6 12,2 16,6"></polyline>
-                        <polyline points="8,18 12,22 16,18"></polyline>
-                    </g>
-                    <g transform="rotate(120 12 12)">
-                        <line x1="12" y1="2" x2="12" y2="22"></line>
-                        <polyline points="8,6 12,2 16,6"></polyline>
-                        <polyline points="8,18 12,22 16,18"></polyline>
-                    </g>
-                </svg>
+                <i class="fas fa-snowflake snowflake-icon"></i>
             </div>
 
             <div id="status"></div>
