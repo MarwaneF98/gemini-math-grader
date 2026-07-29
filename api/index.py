@@ -6,10 +6,110 @@ import math
 import base64
 import requests
 import textwrap
+import re
 from flask import Flask, request, send_file, Response
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 app = Flask(__name__)
+
+# ==========================================
+# ULTIMATE MATH UNICODE FORMATTER
+# ==========================================
+def format_math_unicode(text):
+    if not text:
+        return ""
+        
+    text = text.replace('**', '').replace('*', '').replace('$', '')
+    text = re.sub(r'\\text\{([^}]+)\}', r'\1', text)
+    text = re.sub(r'\\substack\{([^}]+)\}', r'\1', text)
+    text = text.replace(r'\\', ', ')
+    
+    text = re.sub(r'\\pi\s*i\b', r'i \\pi ', text)
+    
+    text = re.sub(r'\be\^\{([^}]+)\}', r'exp(\1)', text)
+    text = re.sub(r'\be\^([a-zA-Z0-9\+\-\=\(\)\/π∣|])', r'exp(\1)', text)
+    
+    replacements = {
+        r'\mathbb{Q}': 'ℚ', r'\mathbb{R}': 'ℝ', r'\mathbb{Z}': 'ℤ', r'\mathbb{N}': 'ℕ', r'\mathbb{C}': 'ℂ', r'\mathbb{P}': 'ℙ',
+        r'\wp': '℘', r'\Im': 'ℑ', r'\Re': 'ℜ', r'\aleph': 'ℵ', r'\ell': 'ℓ',
+        r'\alpha': 'α', r'\beta': 'β', r'\gamma': 'γ', r'\delta': 'δ', r'\epsilon': 'ε', r'\varepsilon': 'ε', 
+        r'\zeta': 'ζ', r'\eta': 'η', r'\theta': 'θ', r'\vartheta': 'ϑ', r'\iota': 'ι', r'\kappa': 'κ', 
+        r'\lambda': 'λ', r'\mu': 'μ', r'\nu': 'ν', r'\xi': 'ξ', r'\pi': 'π', r'\varpi': 'ϖ', r'\rho': 'ρ', 
+        r'\varrho': 'ϱ', r'\sigma': 'σ', r'\varsigma': 'ς', r'\tau': 'τ', r'\upsilon': 'υ', r'\phi': 'ϕ', 
+        r'\varphi': 'φ', r'\chi': 'χ', r'\psi': 'ψ', r'\omega': 'ω',
+        r'\Gamma': 'Γ', r'\Delta': 'Δ', r'\Theta': 'Θ', r'\Lambda': 'Λ', r'\Xi': 'Ξ', r'\Pi': 'Π', 
+        r'\Sigma': 'Σ', r'\Upsilon': 'Υ', r'\Phi': 'Φ', r'\Psi': 'Ψ', r'\Omega': 'Ω',
+        r'\pm': '±', r'\mp': '∓', r'\times': '×', r'\div': '÷', r'\cdot': ' ', r'\ast': '∗', r'\star': '⋆', 
+        r'\circ': '∘', r'\bullet': '∙', r'\oplus': '⊕', r'\otimes': '⊗', r'\ominus': '⊖', r'\oslash': '⊘', 
+        r'\odot': '⊙', r'\uplus': '⊎', r'\sqcap': '⊓', r'\sqcup': '⊔', r'\vee': '∨', r'\wedge': '∧',
+        r'\setminus': '∖', r'\wr': '≀', r'\diamond': '⋄',
+        r'\neq': '≠', r'\equiv': '≡', r'\not\equiv': '≢', r'\approx': '≈', r'\not\approx': '≉', 
+        r'\simeq': '≃', r'\not\simeq': '≄', r'\cong': '≅', r'\not\cong': '≇', r'\sim': '∼', r'\nsim': '≁', 
+        r'\asymp': '≍', r'\propto': '∝', r'\doteq': '≐', r'\ge': '≥', r'\le': '≤', r'\geq': '≥', r'\leq': '≤',
+        r'\gg': '≫', r'\ll': '≪', r'\in': '∈', r'\notin': '∉', r'\ni': '∋', r'\not\ni': '∌', 
+        r'\subset': '⊂', r'\supset': '⊃', r'\not\subset': '⊄', r'\not\supset': '⊅', r'\subseteq': '⊆', 
+        r'\supseteq': '⊇', r'\cup': '∪', r'\cap': '∩', r'\emptyset': '∅', r'\varnothing': '∅', 
+        r'\forall': '∀', r'\exists': '∃', r'\nexists': '∄', r'\implies': '⟹', r'\iff': '⟺', 
+        r'\therefore': '∴', r'\because': '∵', r'\top': '⊤', r'\bot': '⊥', r'\vdash': '⊢', r'\dashv': '⊣', 
+        r'\int': '∫', r'\iint': '∬', r'\iiint': '∭', r'\iiiint': '⨌', r'\oint': '∮', r'\sum': '∑', 
+        r'\prod': '∏', r'\coprod': '∐', r'\partial': '∂', r'\nabla': '∇',
+        r'\gcd': 'gcd', r'\lcm': 'lcm', r'\deg': 'deg', r'\mid': '∣', r'\vert': '∣',
+        r'\infty': '∞', r'\lim': 'lim', r'\min': 'min', r'\max': 'max', r'\sup': 'sup', r'\inf': 'inf', 
+        r'\log': 'log', r'\ln': 'ln', r'\sin': 'sin', r'\cos': 'cos', r'\tan': 'tan',
+        r'\to': '→', r'\rightarrow': '→', r'\leftarrow': '←', r'\leftrightarrow': '↔', r'\Rightarrow': '⇒', 
+        r'\Leftarrow': '⇐', r'\Leftrightarrow': '⇔', r'\mapsto': '↦', r'\uparrow': '↑', r'\downarrow': '↓', 
+        r'\updownarrow': '↕', r'\Uparrow': '⇑', r'\Downarrow': '⇓', r'\Updownarrow': '⇕',
+        r'\angle': '∠', r'\measuredangle': '∡', r'\sphericalangle': '∢', r'\triangle': '△', r'\square': '□', 
+        r'\prime': '′', r'\rangle': '⟩', r'\langle': '⟨', r'\|': '∥', r'\dots': '…', r'\cdots': '⋯'
+    }
+    
+    for latex, unicode_char in sorted(replacements.items(), key=lambda x: len(x[0]), reverse=True):
+        text = text.replace(latex, unicode_char)
+        
+    text = text.replace('  ', ' ')
+    
+    # INDICES
+    sub_map = str.maketrans(
+        "0123456789+-=()abcdefghijklmnopqrstuvwxyzCKOPSUVWXZ/∣|",
+        "₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐ₆꜀ₔₑբ₉ₕᵢⱼₖₗₘₙₒₚqᵣₛₜᵤᵥwₓᵧz꜀ₖₒₚₛᵤᵥwₓz/ₗₗ" 
+    )
+    sub_map.update({ord('β'): 'ᵦ', ord('γ'): 'ᵧ', ord('ρ'): 'ᵨ', ord('ϕ'): 'ᵩ', ord('χ'): 'ᵪ', ord('⊆'): '꜀', ord('⊂'): '꜀', ord('ω'): 'w', ord('π'): 'ₚᵢ'})
+    
+    # EXPOSANTS
+    sup_map = str.maketrans(
+        "0123456789+-=()abcdefghijklmnopqrstuvwxyzCKOPSUVWXZ/∣|",
+        "⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖqʳˢᵗᵘᵛʷˣʸᶻᶜᵏᵒᵖˢᵘᵛʷˣᶻᐟˡˡ"
+    )
+    sup_map.update({ord('α'): 'ᵅ', ord('β'): 'ᵝ', ord('γ'): 'ᵞ', ord('δ'): 'ᵟ', ord('ε'): 'ᵋ', ord('θ'): 'ᶿ', ord('ι'): 'ᶥ', ord('υ'): 'ᶷ', ord('ϕ'): 'ᵠ', ord('χ'): 'ᵡ', ord('⊆'): 'ᶜ', ord('⊂'): 'ᶜ', ord('ω'): 'ʷ', ord('π'): 'ᵖⁱ'})
+
+    # FRACTIONS INTELLIGENTES
+    def frac_repl(match):
+        num = match.group(1).strip()
+        den = match.group(2).strip()
+        if not (num.startswith('(') and num.endswith(')')) and (len(num) > 1 and not num.isdigit()): num = f"({num})"
+        if not (den.startswith('(') and den.endswith(')')) and (len(den) > 1 and not den.isdigit()): den = f"({den})"
+        return f"{num}/{den}"
+    text = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', frac_repl, text)
+
+    # RACINES CARRÉES INTELLIGENTES
+    def sqrt_repl(match):
+        base = match.group(1)
+        expr = match.group(2).strip()
+        base_sup = base.strip().replace(' ', '').translate(sup_map) if base else ""
+        if not (expr.startswith('(') and expr.endswith(')')) and (len(expr) > 1 and not expr.isdigit()): expr = f"({expr})"
+        return f"{base_sup}√{expr}"
+    text = re.sub(r'\\sqrt(?:\[([^\]]+)\])?\{([^}]+)\}', sqrt_repl, text)
+    
+    # RÉSOLUTION RÉCURSIVE DES INDICES ET EXPOSANTS
+    while re.search(r'_\{([^{}]+)\}', text):
+        text = re.sub(r'_\{([^{}]+)\}', lambda m: m.group(1).replace(' ', '').replace('_', '').replace('^', '').translate(sub_map), text)
+    text = re.sub(r'_([a-zA-Z0-9\+\-\=\(\)\/∣|βγρϕχω⊆⊂π])', lambda m: m.group(1).translate(sub_map), text)
+
+    while re.search(r'\^\{([^{}]+)\}', text):
+        text = re.sub(r'\^\{([^{}]+)\}', lambda m: m.group(1).replace(' ', '').replace('_', '').replace('^', '').translate(sup_map), text)
+    text = re.sub(r'\^([a-zA-Z0-9\+\-\=\(\)\/∣|αβγδεθιυϕχω⊆⊂π])', lambda m: m.group(1).translate(sup_map), text)
+    
+    return text.strip()
 
 # ==========================================
 # ROUTE 1: SERVE THE FRONTEND HTML
@@ -30,7 +130,8 @@ COLOR_CORRECT = (22, 163, 74, 255)
 COLOR_ECF = (59, 130, 246, 255)          
 COLOR_MINOR = (147, 51, 234, 255)        
 COLOR_WRONG = (220, 38, 38, 255)         
-COLOR_NOTE_BG = (255, 255, 255, 245)     
+# Transparence maintenue (210 alpha sur 255) pour ne pas cacher le texte manuscrit
+COLOR_NOTE_BG = (255, 255, 255, 210)     
 
 def load_font(target_size):
     local_font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Roboto-Bold.ttf")
@@ -48,7 +149,7 @@ def get_api_annotations(img_chunk, api_key, language_name):
     img_chunk.save(buffer, format="JPEG")
     base64_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-    # UPDATED PROMPT: Added Rule 5 for Native Unicode Math
+    # PROMPT MIS À JOUR : Gemini peut maintenant utiliser le vrai LaTeX !
     prompt = (
         "You are an expert mathematics professor grading a paper.\n"
         "CRITICAL RULES:\n"
@@ -56,7 +157,7 @@ def get_api_annotations(img_chunk, api_key, language_name):
         "2. Group the math into distinct problems. Evaluate every single horizontal line of math. Keep bounding boxes TIGHT.\n"
         "3. Grade using ERROR CARRIED FORWARD (ECF). If a student makes a mistake, but their subsequent steps are logically valid based on that mistake, mark those subsequent steps as 'error_carried_forward'.\n"
         f"4. CRITICAL: Write all 'feedback' strictly in {language_name}.\n"
-        "5. MATH FORMATTING: Do NOT use LaTeX code (no \\frac, \\sqrt, _, or ^). You MUST use standard Unicode characters for all math in your feedback (e.g., write x², ½, √x, ×, ÷, ≈, ³, ∞).\n"
+        "5. MATH FORMATTING: You MUST use standard inline LaTeX for all mathematical expressions (e.g., $x^2$, \\frac{a}{b}, \\sqrt{x}). Do NOT attempt to use raw unicode.\n"
         "Return ONLY a raw JSON array of problem objects. Keys for each problem:\n"
         "- 'lines' (array of objects for each line. Keys:\n"
         "   * 'status' (string, MUST BE EXACTLY ONE OF: 'correct', 'minor_error', 'conceptual_error', 'error_carried_forward'),\n"
@@ -140,7 +241,6 @@ def draw_focus_box(draw, left, top, right, bottom, color, line_w=2):
     draw.line([(right-length, bottom), (right, bottom), (right, bottom-length)], fill=color, width=thick, joint="curve")
 
 def draw_stamp(img_w, img_h, score_text, lang_code):
-    # Scale font based on the smallest dimension to prevent massive stamps on tall photos
     base_font_size = int(min(img_w, img_h) * 0.05)
     stamp_font = load_font(base_font_size)
     label_font = load_font(int(base_font_size * 0.45))
@@ -155,7 +255,6 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     except AttributeError:
         text_w, text_h = temp_draw.textsize(score_text, font=stamp_font)
 
-    # DYNAMIC CIRCLE SCALING: Force the circle to be 1.6x larger than the text itself
     stamp_size = int(max(text_w, text_h) * 1.6)
     stamp = Image.new("RGBA", (stamp_size, stamp_size), (255, 255, 255, 0))
     s_draw = ImageDraw.Draw(stamp)
@@ -171,7 +270,6 @@ def draw_stamp(img_w, img_h, score_text, lang_code):
     score_label = "SCORE"
     if lang_code == "FR": score_label = "NOTE"
 
-    # DYNAMIC TEXT PLACEMENT (Perfectly centered proportionally)
     s_draw.text((stamp_size//2, int(stamp_size * 0.32)), score_label, fill=COLOR_WRONG, font=label_font, anchor="mm")
     s_draw.text((stamp_size//2, int(stamp_size * 0.65)), score_text, fill=COLOR_WRONG, font=stamp_font, anchor="mm")
     
@@ -204,15 +302,12 @@ def grade_api():
         overlay = Image.new("RGBA", original_img.size, (255, 255, 255, 0))
         draw = ImageDraw.Draw(overlay)
         
-        # DYNAMIC GLOBAL SCALING FACTORS
         font_size = int(height * 0.016)
         font = load_font(font_size)
         line_w = max(2, int(height * 0.003))
         mark_scale = max(2, int(height * 0.006))
         
-        # DYNAMIC RADIUS FOR ROUNDED CORNERS
         corner_radius = max(4, int(font_size * 0.4))
-        
         occupied_rects = []
         
         api_img = original_img.copy().convert("RGB")
@@ -258,6 +353,7 @@ def grade_api():
         stamp_rect = [0, 0, 0, 0]
         stamp_img = None
         
+        # Le calcul de la note est bien sur 20 comme vous l'avez demandé
         if total_possible_points > 0:
             raw_score = (earned_points / total_possible_points) * 20
             score_20 = round(raw_score * 2) / 2
@@ -305,8 +401,11 @@ def grade_api():
 
         for step in valid_results:
             status = step.get("status", "correct")
-            feedback = step.get("feedback", "")
-            if not feedback: continue
+            raw_feedback = step.get("feedback", "")
+            if not raw_feedback: continue
+            
+            # FORMATAGE MATHÉMATIQUE INTERCEPTÉ ICI
+            feedback = format_math_unicode(raw_feedback)
             
             left, top, right, bottom = step["global_box"]
             draw_right = step["draw_right"]
@@ -321,7 +420,6 @@ def grade_api():
                 wrapped_feedback = "\n".join(textwrap.wrap(feedback, width=max_chars, break_long_words=False))
 
                 try:
-                    # PERFECT TEXT CENTERING
                     bbox = draw.textbbox((0, 0), wrapped_feedback, font=font, align="center")
                     text_w = bbox[2] - bbox[0]
                     text_h = bbox[3] - bbox[1]
@@ -345,7 +443,6 @@ def grade_api():
                 note_rect = find_safe_spot(start_search_x, start_search_y, box_w, box_h, width, height, occupied_rects, padding=dynamic_search_padding)
                 occupied_rects.append(note_rect) 
                 
-                # Calculate exact center of the placed box
                 note_cx = note_rect[0] + (box_w // 2)
                 note_cy = note_rect[1] + (box_h // 2)
                 
@@ -356,10 +453,8 @@ def grade_api():
 
                 draw.line([line_start, (note_cx, note_cy)], fill=error_color, width=max(2, line_w - 1))
                 
-                # ROUNDED RECTANGLE
                 draw.rounded_rectangle(note_rect, radius=corner_radius, fill=COLOR_NOTE_BG, outline=error_color, width=max(1, line_w - 2))
                 
-                # FALLBACK-SAFE MULTILINE TEXT RENDERING
                 try:
                     draw.multiline_text((note_cx, note_cy), wrapped_feedback, fill=error_color, font=font, anchor="mm", align="center")
                 except TypeError:
@@ -379,3 +474,7 @@ def grade_api():
     except Exception as e:
         print(f"Server Error in grade_api: {str(e)}", flush=True)
         return Response(f"Internal Server Error: {str(e)}", status=500)
+
+if __name__ == '__main__':
+    # Add your logic to run the app if necessary locally
+    app.run(debug=True, port=5000)
